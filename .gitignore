@@ -1,0 +1,18 @@
+# OpenTofu
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+.terraform.tfstate.lock.info
+
+# Local secrets / kubeconfigs
+*.kubeconfig
+kubeconfig*
+.env
+*.pem
+*.key
+id_*
+
+# Environment-specific values (subscription id, e-mails): keep out of the public repo
+terraform.tfvars

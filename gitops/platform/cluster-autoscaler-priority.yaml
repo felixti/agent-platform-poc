@@ -1,0 +1,15 @@
+# Read by the AKS-managed cluster autoscaler (auto_scaler_profile.expander = priority).
+# Higher number = preferred. Regexes match VMSS node-group names.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-autoscaler-priority-expander
+  namespace: kube-system
+data:
+  priorities: |-
+    30:
+      - .*aks-kata-.*
+    20:
+      - .*aks-kataod-.*
+    10:
+      - .*
