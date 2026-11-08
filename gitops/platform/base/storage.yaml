@@ -1,0 +1,21 @@
+# Default class for agent workspaces and platform data.
+# Retain: deleting a PVC (or a Sandbox, see agent-sandbox#2209) never deletes the disk.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: agent-disk
+provisioner: disk.csi.azure.com
+parameters:
+  skuName: StandardSSD_LRS
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+---
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: agent-disk-snapshot
+driver: disk.csi.azure.com
+deletionPolicy: Retain
+parameters:
+  incremental: "true"

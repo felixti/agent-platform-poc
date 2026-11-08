@@ -1,0 +1,26 @@
+# Single-instance PostgreSQL for the PoC (agent registry, brain event logs).
+# Per-employee roles/schemas are added in P2. Backups to Blob: P4.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: agents-pg
+  namespace: data
+spec:
+  instances: 1
+  storage:
+    storageClass: agent-disk
+    size: 8Gi
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 768Mi}
+  affinity:
+    nodeSelector:
+      agentplatform.io/pool: platform
+  bootstrap:
+    initdb:
+      database: agents
+      owner: agents
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: 128MB

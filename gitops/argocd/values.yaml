@@ -1,0 +1,60 @@
+# Lean Argo CD for a 2-vCPU platform node. Access: kubectl port-forward (PoC).
+global:
+  nodeSelector:
+    agentplatform.io/pool: platform
+
+configs:
+  params:
+    server.insecure: true            # TLS terminated by port-forward / Envoy later
+  cm:
+    timeout.reconciliation: 180s
+    # Argo CD tracks resources by annotation; avoids clashes with Helm labels.
+    application.resourceTrackingMethod: annotation
+    # App-of-apps: make sync waves wait for child Applications to be Healthy
+    # (Argo CD >= 1.8 no longer assesses Application health by default).
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = ""
+      if obj.status ~= nil and obj.status.health ~= nil then
+        hs.status = obj.status.health.status
+        if obj.status.health.message ~= nil then
+          hs.message = obj.status.health.message
+        end
+      end
+      return hs
+
+dex:
+  enabled: false                     # SSO via Entra ID can be added in P3
+
+notifications:
+  enabled: false
+
+controller:
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 384Mi}
+    limits: {memory: 1Gi}
+
+server:
+  replicas: 1
+  resources:
+    requests: {cpu: 25m, memory: 96Mi}
+    limits: {memory: 256Mi}
+
+repoServer:
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {memory: 512Mi}
+
+applicationSet:
+  replicas: 1
+  resources:
+    requests: {cpu: 10m, memory: 48Mi}
+    limits: {memory: 128Mi}
+
+redis:
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {memory: 128Mi}

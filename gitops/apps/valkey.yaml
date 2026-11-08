@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: valkey
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"   # after valkey-secrets (ESO)
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://valkey.io/valkey-helm
+    chart: valkey
+    targetRevision: 0.12.1
+    helm:
+      valuesObject:
+        nodeSelector: {agentplatform.io/pool: platform}
+        resources: {requests: {cpu: 20m, memory: 64Mi}, limits: {memory: 256Mi}}
+        dataStorage:
+          enabled: true
+          className: agent-disk
+          requestedSize: 4Gi
+          keepPvc: true
+        auth:
+          enabled: true
+          usersExistingSecret: valkey-users
+          aclUsers:
+            # Platform admin only. Per-employee users (prefix u-<id>:) come in P2.
+            default:
+              permissions: "~* &* +@all"
+              passwordKey: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry: {limit: 10, backoff: {duration: 15s, factor: 2, maxDuration: 5m}}

@@ -1,0 +1,83 @@
+# Mitigates 2026 Kata CVEs exploitable through pod annotations
+# (e.g. CVE-2026-44210 virtiofsd argument injection, CVE-2026-86072
+# runtime.* annotation allowlist bypass). Nobody outside kube-system may set
+# io.katacontainers.* annotations on pods.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: deny-kata-annotations
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validations:
+  - expression: >-
+      !has(object.metadata.annotations) ||
+      !object.metadata.annotations.exists(k, k.startsWith('io.katacontainers.'))
+    message: "io.katacontainers.* annotations are forbidden"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: deny-kata-annotations
+spec:
+  policyName: deny-kata-annotations
+  validationActions: ["Deny"]
+  matchResources:
+    namespaceSelector:
+      matchExpressions:
+      - {key: kubernetes.io/metadata.name, operator: NotIn, values: ["kube-system"]}
+---
+# Same rule for the pod templates embedded in agent-sandbox objects, so the
+# controller is never asked to create such a pod.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: sandbox-pod-template-guard
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["agents.x-k8s.io"]
+      apiVersions: ["*"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["sandboxes"]
+    - apiGroups: ["extensions.agents.x-k8s.io"]
+      apiVersions: ["*"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["sandboxtemplates"]
+  variables:
+  - name: tpl
+    expression: "object.spec.podTemplate"
+  validations:
+  - expression: >-
+      !has(variables.tpl.metadata) || !has(variables.tpl.metadata.annotations) ||
+      !variables.tpl.metadata.annotations.exists(k, k.startsWith('io.katacontainers.'))
+    message: "io.katacontainers.* annotations are forbidden in sandbox pod templates"
+  - expression: "has(variables.tpl.spec.runtimeClassName) && variables.tpl.spec.runtimeClassName == 'kata-vm-isolation'"
+    message: "sandboxes must use runtimeClassName kata-vm-isolation"
+  - expression: >-
+      !has(variables.tpl.spec.volumes) ||
+      variables.tpl.spec.volumes.all(v, !has(v.hostPath))
+    message: "hostPath volumes are forbidden in sandboxes"
+  - expression: >-
+      !(has(variables.tpl.spec.hostNetwork) && variables.tpl.spec.hostNetwork) &&
+      !(has(variables.tpl.spec.hostPID) && variables.tpl.spec.hostPID) &&
+      !(has(variables.tpl.spec.hostIPC) && variables.tpl.spec.hostIPC)
+    message: "host namespaces are forbidden in sandboxes"
+  - expression: >-
+      variables.tpl.spec.containers.all(c,
+        !has(c.securityContext) || !has(c.securityContext.privileged) || !c.securityContext.privileged)
+    message: "privileged containers are forbidden in sandboxes"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: sandbox-pod-template-guard
+spec:
+  policyName: sandbox-pod-template-guard
+  validationActions: ["Deny"]

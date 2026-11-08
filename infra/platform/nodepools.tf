@@ -18,6 +18,11 @@ resource "azurerm_kubernetes_cluster_node_pool" "platform" {
   }
 
   tags = var.tags
+
+  lifecycle {
+    # Reported as 0 while the cluster is stopped by the schedule.
+    ignore_changes = [node_count]
+  }
 }
 
 # Sandbox pool: AKS Pod Sandboxing (Kata + Cloud Hypervisor) for agent sandboxes.
