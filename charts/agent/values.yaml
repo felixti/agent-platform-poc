@@ -36,7 +36,10 @@ computer:
     requests: {cpu: 250m, memory: 1Gi}
     limits: {cpu: 1500m, memory: 3Gi}
   storage: 4Gi
-  operatingMode: Running     # Running | Suspended (hibernate, keeps the PVC)
+  operatingMode: Running     # initial mode; Running | Suspended (keeps the PVC)
+  # schedule = sleep 20:00 every day, wake 08:00 Mon-Fri (America/Sao_Paulo),
+  # by gitops/platform/hibernation. "off" = always on. The brain is never hibernated.
+  hibernate: schedule
   # Headless Chromium in the computer, driven by the brain's browser tool over
   # CDP (:9222, brain-only). Reaches the internet through the egress proxy.
   browser:

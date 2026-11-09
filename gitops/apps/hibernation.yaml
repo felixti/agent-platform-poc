@@ -1,0 +1,21 @@
+# Schedule-based hibernation of agent computers (D56/D62).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hibernation
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/felixti/agent-platform-poc.git
+    targetRevision: main
+    path: gitops/platform/hibernation
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: agent-hibernation
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [ServerSideApply=true]

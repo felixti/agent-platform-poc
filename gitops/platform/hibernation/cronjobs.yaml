@@ -1,0 +1,79 @@
+# Schedule-based hibernation (D56/D62): agent computers (Kata VMs) sleep at night
+# and on weekends; brains stay up (channels keep answering). Times: America/Sao_Paulo.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: computers-sleep
+spec:
+  schedule: "0 20 * * *"
+  timeZone: America/Sao_Paulo
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          serviceAccountName: hibernator
+          restartPolicy: Never
+          nodeSelector: {agentplatform.io/pool: platform}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+          - name: hibernate
+            image: docker.io/library/python:3.13-alpine@sha256:1e1f6334529d1fb26a2ef619d7cffb30a7c7d7cc1cc7338ebee283a58d1aeaca
+            command: [python3, -I, /script/hibernate.py]
+            env: [{name: MODE, value: Suspended}]
+            resources:
+              requests: {cpu: 10m, memory: 32Mi}
+              limits: {memory: 64Mi}
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: [ALL]}
+            volumeMounts: [{name: script, mountPath: /script, readOnly: true}]
+          volumes: [{name: script, configMap: {name: hibernate-script}}]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: computers-wake
+spec:
+  schedule: "0 8 * * 1-5"
+  timeZone: America/Sao_Paulo
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          serviceAccountName: hibernator
+          restartPolicy: Never
+          nodeSelector: {agentplatform.io/pool: platform}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+          - name: hibernate
+            image: docker.io/library/python:3.13-alpine@sha256:1e1f6334529d1fb26a2ef619d7cffb30a7c7d7cc1cc7338ebee283a58d1aeaca
+            command: [python3, -I, /script/hibernate.py]
+            env: [{name: MODE, value: Running}]
+            resources:
+              requests: {cpu: 10m, memory: 32Mi}
+              limits: {memory: 64Mi}
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: [ALL]}
+            volumeMounts: [{name: script, mountPath: /script, readOnly: true}]
+          volumes: [{name: script, configMap: {name: hibernate-script}}]

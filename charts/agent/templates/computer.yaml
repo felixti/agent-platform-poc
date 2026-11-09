@@ -5,7 +5,13 @@ apiVersion: agents.x-k8s.io/v1beta1
 kind: Sandbox
 metadata:
   name: {{ include "agent.computerHost" . }}
-  labels: {{- include "agent.labels" . | nindent 4 }}
+  labels:
+    {{- include "agent.labels" . | nindent 4 }}
+    {{- if eq .Values.computer.hibernate "schedule" }}
+    # Opt-in for gitops/platform/hibernation (CronJobs flip spec.operatingMode;
+    # Argo ignores that field, see gitops/apps/agents.yaml).
+    agentplatform.io/hibernate: schedule
+    {{- end }}
 spec:
   operatingMode: {{ .Values.computer.operatingMode }}
   podTemplate:

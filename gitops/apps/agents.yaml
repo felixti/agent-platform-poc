@@ -29,7 +29,12 @@ spec:
         namespace: 'u-{{ .employee }}'
       syncPolicy:
         automated: {prune: true, selfHeal: true}
-        syncOptions: [ServerSideApply=true]
+        syncOptions: [ServerSideApply=true, RespectIgnoreDifferences=true]
+      # Hibernation CronJobs own spec.operatingMode after creation (D62).
+      ignoreDifferences:
+      - group: agents.x-k8s.io
+        kind: Sandbox
+        jsonPointers: [/spec/operatingMode]
   # Pass the whole agent file as Helm values.
   templatePatch: |
     spec:

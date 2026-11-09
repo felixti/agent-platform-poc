@@ -1,0 +1,22 @@
+# Only list + patch Sandboxes; the script touches spec.operatingMode only.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hibernator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent-hibernator
+rules:
+- apiGroups: [agents.x-k8s.io]
+  resources: [sandboxes]
+  verbs: [list, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: agent-hibernator
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: agent-hibernator}
+subjects:
+- {kind: ServiceAccount, name: hibernator, namespace: agent-hibernation}
