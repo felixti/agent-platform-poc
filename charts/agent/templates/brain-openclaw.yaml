@@ -30,6 +30,13 @@
 {{- $ssrf := dict "dangerouslyAllowPrivateNetwork" false "allowedHostnames" (concat (list (include "agent.computerHost" .)) .Values.egress.allow) }}
 {{- $_ := set $config "browser" (dict "enabled" true "defaultProfile" "computer" "profiles" (dict "computer" $profile) "ssrfPolicy" $ssrf) }}
 {{- end }}
+{{- /* Platform-owned keys, re-applied with `openclaw config set` on every start
+       (the seeded file is the brain's own after first boot). */}}
+{{- $platformSet := list }}
+{{- if .Values.computer.browser.enabled }}
+{{- $platformSet = append $platformSet (dict "path" "browser" "value" $config.browser) }}
+{{- $platformSet = append $platformSet (dict "path" "agents.defaults.sandbox.browser" "value" $sandbox.browser) }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -37,6 +44,7 @@ metadata:
   labels: {{- include "agent.labels" . | nindent 4 }}
 data:
   openclaw.json: {{ toPrettyJson $config | quote }}
+  platform-set.json: {{ toJson $platformSet | quote }}
 ---
 # Pre-provisioned handle to the platform's golden snapshot, bound into this
 # employee namespace (VolumeSnapshots are namespaced; the content is not).
@@ -105,6 +113,7 @@ spec:
         agentplatform.io/role: brain
       annotations:
         checksum/config: {{ toJson $config | sha256sum }}
+        checksum/platform-set: {{ toJson $platformSet | sha256sum }}
     spec:
       serviceAccountName: {{ .Values.name }}-brain
       automountServiceAccountToken: false
@@ -127,6 +136,9 @@ spec:
       #    the source of truth (OpenClaw treats external overwrites as clobbering
       #    and restores its backup ring). Reseed: delete the file and restart.
       #  - prepare a sticky (1777) temp dir owned by the same UID for /tmp.
+      #  - re-apply platform-owned keys (browser profile + SSRF allowlist) with
+      #    `openclaw config set`, the supported writer, so allowlist edits in git
+      #    reach existing agents without a reseed.
       - name: init-config
         image: {{ .Values.brain.openclaw.image }}
         command:
@@ -141,6 +153,10 @@ spec:
             echo "seeded openclaw.json"
           fi
           mkdir -p /scratch/gateway-tmp && chmod 1777 /scratch/gateway-tmp
+          if [ "$(cat /config/platform-set.json)" != "[]" ]; then
+            HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json \
+              node openclaw.mjs config set --batch-file /config/platform-set.json
+          fi
         securityContext:
           runAsUser: 1000
           runAsGroup: 1000
@@ -148,8 +164,8 @@ spec:
           allowPrivilegeEscalation: false
           capabilities: {drop: [ALL]}
         resources:
-          requests: {cpu: 10m, memory: 16Mi}
-          limits: {memory: 64Mi}
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {memory: 768Mi}
         volumeMounts:
         - {name: config, mountPath: /config}
         - {name: state, mountPath: /data}
