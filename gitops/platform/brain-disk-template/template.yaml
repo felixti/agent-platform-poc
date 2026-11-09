@@ -35,7 +35,8 @@ metadata:
   name: brain-state-golden-prepare
   namespace: platform-storage
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    # Same wave as the PVC: WaitForFirstConsumer binds only once this pod exists.
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   backoffLimit: 3
   template:
