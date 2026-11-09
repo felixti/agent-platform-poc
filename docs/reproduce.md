@@ -133,6 +133,13 @@ OpenClaw and Hermes run their gateway on the host with sandboxed tool backends.
 | D42 | agent-sandbox v1.0 creates no Service | Chart adds ClusterIP Service `<agent>-computer:2222` | — |
 | D43 | OpenClaw treats overwritten config as clobbered | Seed `openclaw.json` once (upstream k8s recipe); sticky `/tmp` | Re-copying config on every start |
 | D44 | LLM gateway shape | Internal endpoint `http://llm-gateway.envoy-gateway-system.svc/api/v1`; Envoy `Backend` (FQDN, TLS) + `HTTPRouteFilter.credentialInjection` + local rate limit 120 req/min | Forward proxy with `HTTPS_PROXY` (not needed for LLM calls) |
+| D45 | Sandbox internet access | **Per-agent Envoy egress proxy** (`<agent>-egress`, runc, platform pool): dynamic forward proxy for HTTP CONNECT + plain HTTP, `route_config` host allowlist from `agents/*.yaml` `egress.allow` (`host` and `host:443`), default vhost 403, stdout access log. Computer egress NetworkPolicy → its proxy only; proxy egress → `0.0.0.0/0` on 80/443 **except** RFC1918, CGNAT, link-local (IMDS) and `168.63.129.16` | AKS ACNS FQDN policies (paid add-on, ~US$0.025/node-h) · Squid (extra component) · proxy as sidecar (shares the pod network, agent could bypass) · Envoy Gateway `DynamicResolver` Backend (no documented host restriction) |
+| D46 | Proxy for SSH sessions | Entrypoint appends `SetEnv HTTP(S)_PROXY/NO_PROXY` to a runtime copy of `sshd_config` (sessions do not inherit container env) | `/etc/environment` (needs PAM) |
+| D47 | Browser for the agent | Headless Chromium **inside the Kata computer** (`--no-sandbox`: the microVM is the boundary), proxied via `--proxy-server`; OpenClaw `browser` profile `computer` = remote CDP `http://<agent>-computer:9222`, `attachOnly` | OpenClaw sandbox browser (Docker-only) · Chromium in the brain pod (runc, outside the VM) |
+| D48 | Chromium DevTools only answers `Host: localhost/IP` and advertises `ws://` from that Host | `cdp-relay.py` in the image: listens `0.0.0.0:9222`, rewrites `Host` to `127.0.0.1:9223`, rewrites advertised `ws://` back to the client's host, pipes WebSockets. NetworkPolicy: brain-only | Fixed ClusterIP per agent · `--remote-debugging-address=0.0.0.0` (Host check still applies) |
+| D49 | OpenClaw strict SSRF policy blocks private CDP endpoints and hostname navigation | Keep strict; `browser.ssrfPolicy.allowedHostnames` = computer host + `egress.allow` (same list enforced twice: OpenClaw and proxy). Browser tool enabled with `tools.alsoAllow` and `tools.sandbox.tools.alsoAllow` (`coding` profile and sandbox defaults exclude it) | `dangerouslyAllowPrivateNetwork: true` · `tools.profile: full` |
+| D50 | Config seeded once (D43) would freeze browser/allowlist settings | Init container re-applies **platform-owned keys** (`browser`, `agents.defaults.sandbox.browser`, `tools.alsoAllow`, `tools.sandbox.tools.alsoAllow`) with `openclaw config set --batch-file` on every start | Reseeding the whole file |
+| D51 | Ops UI | **Headlamp** 0.46.0 (kubernetes-sigs, Apache-2.0) via Argo CD, port-forward + short-lived SA token; custom portal deferred until employee-facing needs are known (it should write to git, not the API) | Kubernetes Dashboard (archived) · Backstage (heavy) · custom portal now |
 
 ---
 
@@ -259,8 +266,11 @@ Then:
      https://ghcr.io/v2/<owner>/agent-sandbox-ssh/manifests/latest | grep -i docker-content-digest
    ```
 
-The image is Debian bookworm-slim with non-root `sshd` on port 2222 (uid 1000,
-key-only, no forwarding), plus `python3` and GNU coreutils for the OpenClaw SSH backend contract.
+The image is `node:22-bookworm-slim` with non-root `sshd` on port 2222 (uid 1000,
+key-only, no forwarding), `tini` as PID 1, `python3` and GNU coreutils for the OpenClaw
+SSH backend contract, headless Chromium + `cdp-relay.py` on :9222 (D47–D48), and a CLI
+toolbox: git, gh, ripgrep, fd, jq, yq, curl, wget, Node 22 + npm, uv, build-essential, unzip.
+Test it locally before pushing (`docker build`, then `curl -H 'Host: x:9222' localhost:<port>/json/version`).
 
 ### 4.4 Secrets in Key Vault (≈2 min)
 
@@ -317,6 +327,8 @@ employee: alice
 name: assistant
 brainKind: openclaw
 model: meta/muse-spark-1.3-contributor
+egress:                     # optional; omit = no internet
+  allow: [github.com, "*.github.com", "*.githubusercontent.com", pypi.org, files.pythonhosted.org, registry.npmjs.org]
 EOF
 git add employees agents && git commit -m "add alice/assistant" && git push
 ```
@@ -324,7 +336,8 @@ git add employees agents && git commit -m "add alice/assistant" && git push
 What gets created in `u-alice`:
 - **ESO-generated secrets:** SSH client key, SSH host key (with `known_hosts`), UI token.
 - **Brain:** StatefulSet with its disk cloned from the golden snapshot.
-- **Computer:** a `Sandbox`, which becomes a Kata pod with a 4 GiB workspace PVC, plus its Service.
+- **Computer:** a `Sandbox`, which becomes a Kata pod (1.5 vCPU / 3 GiB, headless Chromium) with a 4 GiB workspace PVC, plus its Service (:2222 SSH, :9222 CDP).
+- **Egress proxy** (only with `egress.allow`): Deployment + Service `<agent>-egress:3128`.
 - **Paired NetworkPolicies.**
 
 First start: the Kata node scales from 0 (≈2–3 min).
@@ -335,6 +348,7 @@ First start: the Kata node scales from 0 (≈2–3 min).
 
 See [`playbook.md` §1](playbook.md#1-daily-use-5-minutes): port-forward
 `svc/assistant-brain 18789` and open `http://localhost:18789/#token=<token>`.
+Ops UI: Headlamp (§6 item 8).
 
 ---
 
@@ -361,6 +375,11 @@ All fixes are already in the code; this explains **why** the code looks the way 
 | P15 | LLM call returned 404 "Paid model training violation" | Provider account blocked training-on-prompts models | Allowed it in OpenRouter privacy settings (or pick a non-training model) |
 | P16 | Lowering employee namespaces to PSS `baseline` was blocked by the safety classifier | Security weakening | Replaced by D41 (kept `restricted`) |
 | P17 | `git push` failed: stale credential helper path | `gh` reinstalled via mise | `gh auth setup-git` |
+| P18 | CDP relay hung on `/json/version` | Chromium keeps HTTP connections open despite `Connection: close` | Relay reads exactly `Content-Length` bytes |
+| P19 | `Remote CDP ... is not reachable` / `Navigation blocked: strict browser SSRF policy requires an IP-literal URL` | OpenClaw strict SSRF mode blocks private CDP hosts and unlisted hostnames | `browser.ssrfPolicy.allowedHostnames` (D49) |
+| P20 | Agent said "no browser tool available" | `coding` tool profile lacks `browser`; sandboxed sessions deny it by default (`openclaw sandbox explain`) | `tools.alsoAllow` + `tools.sandbox.tools.alsoAllow` (D49) |
+| P21 | New computer image not used after sync | agent-sandbox v1.0 does not roll the pod on `podTemplate` change | `kubectl -n u-<id> delete pod <agent>-computer` (workspace PVC is kept) |
+| P22 | `browser.profiles.*.color` rejected | Not in the OpenClaw 2026.11 schema | Removed; validate with `openclaw config set ... --dry-run` |
 
 ---
 
@@ -383,13 +402,26 @@ Run after §4.6. Each item maps to an acceptance criterion in `design.md`.
    kubectl -n u-alice exec assistant-brain-0 -c brain -- sh -c 'env | grep -ci sk-or'   # expect 0
    kubectl -n u-alice exec assistant-brain-0 -c brain -- node -e 'fetch("http://llm-gateway.envoy-gateway-system.svc/api/v1/chat/completions",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({model:"<model>",max_tokens:20,messages:[{role:"user",content:"hi"}]})}).then(r=>console.log(r.status))'
    ```
-4. **Brain → computer over SSH, sandbox has no internet.** From the brain, run `ssh` with `$SSH_IDENTITY` and `$SSH_KNOWN_HOSTS` (see `playbook.md`). `curl https://example.com` inside the computer must fail.
+4. **Brain → computer over SSH; internet only via the allowlist.** From the brain, run `ssh` with `$SSH_IDENTITY` and `$SSH_KNOWN_HOSTS` (see `playbook.md`). Expect `200`, `403`/exit 56, and a timeout (exit 28):
+   ```bash
+   kubectl -n u-alice exec assistant-computer -- curl -s -o /dev/null -w '%{http_code}' -x http://assistant-egress:3128 https://github.com
+   kubectl -n u-alice exec assistant-computer -- curl -s -o /dev/null -w '%{http_code}' -x http://assistant-egress:3128 https://google.com
+   kubectl -n u-alice exec assistant-computer -- curl -s -m 8 https://github.com    # direct, no proxy
+   kubectl -n u-alice logs deploy/assistant-egress | tail                           # access log
+   ```
 5. **Agent turn executes in the sandbox:**
    ```bash
    kubectl -n u-alice exec assistant-brain-0 -c brain -- sh -c 'cd /app && node openclaw.mjs agent --session-id t -m "run uname -r with your exec tool"'
    ```
    The reply must show the guest kernel.
 6. **Valkey auth.** `valkey-cli PING` without a password returns `NOAUTH`.
+7. **Browser in the VM.** Expect `OK browser: running`, then a page snapshot:
+   ```bash
+   X="kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs"
+   $X browser doctor && $X browser open https://en.wikipedia.org/wiki/Kata_Containers && $X browser snapshot | head
+   $X sandbox explain --agent main     # "browser" must be in the allow list
+   ```
+8. **Headlamp.** `kubectl -n headlamp port-forward svc/headlamp 4466:80`, open `http://localhost:4466`, paste `kubectl -n headlamp create token headlamp --duration=1h`.
 
 Not yet automated (P4): cross-employee isolation (alice × bob), snapshot restore,
 Spot eviction, Postgres backup/restore.
@@ -428,7 +460,8 @@ Every infrastructure change in this PoC was presented with a per-action cost tab
 
 | Phase | Item |
 |---|---|
-| P3 | Telegram webhook; HTTPS ingress with Entra ID OIDC (Envoy `SecurityPolicy`); idle hibernation; sandbox internet via Envoy FQDN allowlist |
+| P3 | Telegram webhook; HTTPS ingress with Entra ID OIDC (Envoy `SecurityPolicy`, also for Headlamp); idle hibernation |
+| P3+ | Egress: per-agent allowlist done (D45). Next: TLS-level checks (SNI must match CONNECT host), per-request audit to Log Analytics, Headlamp plugin "Agents" |
 | P4 | Acceptance tests with evidence; CNPG backups to Blob; daily VolumeSnapshots |
 | P5 | `hermes` brain kind |
 | Phase 2 | Custom stateless brain (pi-durable + Postgres event log); agent-sandbox HTTP API instead of SSH; per-employee Blob containers via Workload Identity |

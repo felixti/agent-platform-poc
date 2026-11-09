@@ -6,7 +6,7 @@
 > **Agora:** com o cluster ligado, o custo é ~R$1,50/h. Desligue quando terminar:
 > `az aks stop -g aks-lab -n aks-lab` (≈3 min).
 
-Status em 2026-11-09: **P0, P1 e P2 concluídas.** Um agente OpenClaw (`alice/assistant`) funciona de ponta a ponta.
+Status em 2026-11-09: **P0, P1 e P2 concluídas, além de allowlist de egress, browser dentro da VM e Headlamp.** Um agente OpenClaw (`alice/assistant`) funciona de ponta a ponta.
 Diagrama: [`docs/topology.html`](topology.html). Como recriar do zero e todas as decisões: [`reproduce.md`](reproduce.md).
 
 ---
@@ -25,6 +25,12 @@ Diagrama: [`docs/topology.html`](topology.html). Como recriar do zero e todas as
    ```
 
 Depois de ligar o cluster, a primeira mensagem pode levar ≈2 min: o node Kata sobe a partir de zero.
+
+### UI de operação (Headlamp)
+
+1. Abra o túnel: `kubectl -n headlamp port-forward svc/headlamp 4466:80`
+2. Abra `http://localhost:4466` e cole um token válido por 1 h: `kubectl -n headlamp create token headlamp --duration=1h`
+3. Para ver os sandboxes: menu lateral → Custom Resources → `agents.x-k8s.io` → Sandbox.
 
 ### Desligar
 
@@ -45,9 +51,16 @@ Depois de ligar o cluster, a primeira mensagem pode levar ≈2 min: o node Kata 
    name: assistant
    brainKind: openclaw
    model: meta/muse-spark-1.3-contributor
+   egress:              # opcional: allowlist de internet (sem isso = sem internet)
+     allow: [github.com, "*.github.com", pypi.org]
    ```
 3. Faça commit e push na `main`. O Argo CD cria o namespace `u-carol` e o agente (≈3 min).
 4. Para abrir a UI, repita os passos 3 e 4 da §1, trocando `u-alice` por `u-carol`.
+
+### Mudar a allowlist de internet de um agente
+
+1. Edite `egress.allow` em `agents/<id>/<name>.yaml` e faça commit e push. Em ≈3 min o proxy e a política do browser são atualizados.
+2. Para ver o que o agente tentou acessar: `kubectl -n u-<id> logs deploy/<name>-egress | tail`. Um 403 significa bloqueado.
 
 ---
 
@@ -66,7 +79,7 @@ Depois de ligar o cluster, a primeira mensagem pode levar ≈2 min: o node Kata 
 Também existem:
 - **Storage account** `stagentpocjt75`: para artefatos, sem chaves, ainda não usado.
 - **Budget** de R$450, com alertas de previsão (85%) e de gasto real (50/80/100%).
-- **Automation runbook**: liga às 08:00 e desliga às 21:00 BRT nos dias úteis.
+- **Automation runbook**: desliga às 21:00 BRT nos dias úteis. O agendamento de start existe, mas está desabilitado.
 - **LB + public IP**: ~R$118/mês.
 
 ### No cluster (Argo CD, `gitops/`)
@@ -84,9 +97,10 @@ Também existem:
 | Peça | O que é |
 |---|---|
 | Brain | OpenClaw gateway, StatefulSet, runc, non-root, disk cloned from golden snapshot |
-| Computer | agent-sandbox `Sandbox`, Kata microVM, non-root sshd :2222, 4 GiB workspace |
+| Computer | agent-sandbox `Sandbox`, Kata microVM (1.5 vCPU / 3 GiB), non-root sshd :2222, headless Chromium (CDP :9222 via relay), CLI toolbox, 4 GiB workspace |
+| Egress proxy | Envoy `<agent>-egress:3128`, host allowlist from the agent YAML, blocks private/IMDS ranges, access log |
 | Keys | SSH client/host keys + UI token, generated in-cluster by ESO generators |
-| Network | brain → own computer :2222 and LLM gateway only; computer ← own brain only, no internet |
+| Network | brain → own computer :2222/:9222 and LLM gateway only; computer ← own brain only; computer → own egress proxy only |
 
 ---
 
@@ -94,9 +108,14 @@ Também existem:
 
 1. O sandbox roda numa VM própria: kernel do guest `6.18.52.mshv1-2`, diferente do kernel do node `6.18.34.mshv3-1`.
 2. A key do LLM nunca aparece no brain nem no sandbox (0 ocorrências), e as chamadas funcionam porque o Envoy injeta a key.
-3. O sandbox não tem acesso à internet: o `curl` é bloqueado pela NetworkPolicy.
+3. O sandbox só acessa a internet pela allowlist:
+   - github e pypi retornam 200;
+   - google retorna 403;
+   - o `curl` direto, sem proxy, dá timeout;
+   - o IMDS retorna 403.
 4. O agente executou `uname`/`id` e gravou `note.txt` no sandbox. O arquivo continua no Azure Disk.
 5. A admission policy bloqueia anotações `io.katacontainers.*`, Sandbox sem Kata e Sandbox com hostPath.
+6. O agente usou o tool `browser`: o Chromium, dentro da VM Kata, abriu a Wikipedia pelo proxy, e o `google.com` foi bloqueado.
 
 Também verificado:
 - o Valkey recusa cliente sem autenticação (`NOAUTH`);
@@ -115,6 +134,9 @@ Também verificado:
 | Brain `EPERM fchmod` / "ancestor must not allow another user" | OpenClaw requires a state dir owned by its uid, no group write; Azure Disk root is root-owned | Golden snapshot (uid 1000, 0700), no `fsGroup` on brain |
 | Brain restored old config | OpenClaw treats overwrites as clobbering | Seed `openclaw.json` once; sticky `/tmp` (upstream k8s recipe) |
 
+| Agent: "no browser tool available" | `coding` profile + sandbox default deny exclude `browser` | `tools.alsoAllow` + `tools.sandbox.tools.alsoAllow` (chart re-applies on start) |
+| New computer image not running | agent-sandbox v1.0 does not roll the pod | `kubectl -n u-<id> delete pod <agent>-computer` |
+
 Outros menores:
 - as SSH keys do ESO precisam de `refreshInterval: "0"`;
 - a quota exige `resources` também nos init containers;
@@ -127,7 +149,7 @@ Outros menores:
 | Fase | O quê | Estimativa |
 |---|---|---|
 | P3 | Telegram webhook + HTTPS ingress com Entra ID OIDC; hibernação idle → `Suspended` | ≈1 noite |
-| P3 | Internet egress do sandbox via Envoy FQDN allowlist | ≈1–2 h |
+| P3+ | Hardening do egress (checagem de SNI, auditoria no Log Analytics) e plugin "Agents" no Headlamp | ≈1 noite cada |
 | P4 | Testes de aceite com evidência: isolamento alice × bob, snapshot restore, Spot eviction, Postgres backup | ≈1 noite |
 | P5 | `hermes` brain kind | ≈2–3 h |
 | Fase 2 | Brain custom stateless (pi-durable + Postgres event log) | projeto |

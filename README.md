@@ -35,5 +35,5 @@ cd ../platform     && tofu init && tofu plan -out=p.tfplan && tofu apply p.tfpla
 az aks get-credentials -g aks-lab -n aks-lab
 ```
 
-The cluster is started 08:00 and stopped 21:00 (America/Sao_Paulo) on weekdays.
+The cluster is stopped 21:00 (America/Sao_Paulo) on weekdays; the 08:00 start schedule is disabled (`schedule_start_enabled`).
 Start it manually with `az aks start -g aks-lab -n aks-lab`.
