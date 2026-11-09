@@ -15,3 +15,7 @@ egress:
   - registry.npmjs.org
   - example.com
   - en.wikipedia.org
+# Messaging channels. Token: Key Vault kv-agentch-* secret "alice-assistant-telegram".
+channels:
+  telegram:
+    enabled: true
