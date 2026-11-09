@@ -25,6 +25,14 @@ Diagram: [`docs/topology.html`](topology.html). Rebuild from scratch + every dec
 
 First message after a cold start can take ≈2 min: the Kata node scales up from zero.
 
+### Talk to the agent on Telegram
+
+1. Message **@xppocopenclaw_bot**. First time: it replies with a pairing code.
+2. Approve it (≈1 min):
+   ```bash
+   kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve telegram <CODE>
+   ```
+
 ### Ops UI (Headlamp)
 
 1. Tunnel: `kubectl -n headlamp port-forward svc/headlamp 4466:80`
@@ -73,7 +81,7 @@ First message after a cold start can take ≈2 min: the Kata node scales up from
 | Pool `nodepool1` | 1× B2s Ubuntu, system add-ons only | ~R$64 + disk R$28 |
 | Pool `platform` | D2ds_v5 Azure Linux, autoscale 1–2, ephemeral OS | ~R$174 per node (weekday hours) |
 | Pools `kata` / `kataod` | D2ds_v5 KataVmIsolation, 0–1, Spot preferred, on-demand fallback | R$0.13–0.61/h only while a sandbox runs |
-| Key Vaults | `kv-agentpoc-tf-4a67` (state key), `kv-agentpoc-jt75` (platform secrets) | cents |
+| Key Vaults | `kv-agentpoc-tf-4a67` (state key), `kv-agentpoc-jt75` (platform secrets), `kv-agentch-jt75` (agent channel tokens) | cents |
 
 Also: Storage account `stagentpocjt75` (artifacts, keyless, unused yet), budget R$450 with alerts (forecast 85 %, actual 50/80/100 %), Automation runbook stop 21:00 BRT weekdays (start schedule exists, disabled), LB + public IP (~R$118).
 
@@ -93,7 +101,8 @@ Also: Storage account `stagentpocjt75` (artifacts, keyless, unused yet), budget 
 |---|---|
 | Brain | OpenClaw gateway, StatefulSet, runc, non-root, disk cloned from golden snapshot |
 | Computer | agent-sandbox `Sandbox`, Kata microVM (1.5 vCPU / 3 GiB), non-root sshd :2222, headless Chromium (CDP :9222 via relay), CLI toolbox, 4 GiB workspace |
-| Egress proxy | Envoy `<agent>-egress:3128`, host allowlist from the agent YAML, blocks private/IMDS ranges, access log |
+| Egress proxy | Envoy `<agent>-egress`: :3128 computer (allowlist from the agent YAML), :3129 brain (channel APIs only, e.g. `api.telegram.org`); blocks private/IMDS ranges; access log |
+| Channels | Telegram (long polling, `dmPolicy: pairing`); token from `kv-agentch-*` as env, never in config |
 | Keys | SSH client/host keys + UI token, generated in-cluster by ESO generators |
 | Network | brain → own computer :2222/:9222 and LLM gateway only; computer ← own brain only; computer → own egress proxy only |
 
@@ -143,7 +152,7 @@ More, smaller: ESO SSH keys need `refreshInterval: "0"`; quota requires resource
 
 ## 7. Housekeeping
 
-1. **Rotate the OpenRouter key** (it was pasted in chat) — openrouter.ai/settings/keys, then:
+1. **Rotate the OpenRouter key and the Telegram bot token** (both pasted in chat). Bot: @BotFather `/revoke`, then `az keyvault secret set --vault-name kv-agentch-jt75 -n alice-assistant-telegram --file <file>`. OpenRouter key — openrouter.ai/settings/keys, then:
    `az keyvault secret set --vault-name kv-agentpoc-jt75 -n openrouter-api-key --file <file>` — ≈2 min
 2. OpenRouter account now **allows training on prompts** (needed for the `contributor` model). Turn it off if you switch models.
 3. Never commit `terraform.tfvars` (subscription id, e-mail) — it is gitignored.

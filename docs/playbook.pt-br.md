@@ -26,6 +26,14 @@ Diagrama: [`docs/topology.html`](topology.html). Como recriar do zero e todas as
 
 Depois de ligar o cluster, a primeira mensagem pode levar ≈2 min: o node Kata sobe a partir de zero.
 
+### Falar com o agente no Telegram
+
+1. Mande uma mensagem para **@xppocopenclaw_bot**. Na primeira vez, ele responde com um código de pareamento.
+2. Aprove o código (≈1 min):
+   ```bash
+   kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve telegram <CODE>
+   ```
+
 ### UI de operação (Headlamp)
 
 1. Abra o túnel: `kubectl -n headlamp port-forward svc/headlamp 4466:80`
@@ -74,7 +82,7 @@ Depois de ligar o cluster, a primeira mensagem pode levar ≈2 min: o node Kata 
 | Pool `nodepool1` | 1× B2s Ubuntu, system add-ons only | ~R$64 + disco R$28 |
 | Pool `platform` | D2ds_v5 Azure Linux, autoscale 1–2, ephemeral OS | ~R$174 por node (horário útil) |
 | Pools `kata` / `kataod` | D2ds_v5 KataVmIsolation, 0–1, Spot preferred, on-demand fallback | R$0,13–0,61/h só enquanto um sandbox roda |
-| Key Vaults | `kv-agentpoc-tf-4a67` (state key), `kv-agentpoc-jt75` (platform secrets) | centavos |
+| Key Vaults | `kv-agentpoc-tf-4a67` (state key), `kv-agentpoc-jt75` (platform secrets), `kv-agentch-jt75` (agent channel tokens) | centavos |
 
 Também existem:
 - **Storage account** `stagentpocjt75`: para artefatos, sem chaves, ainda não usado.
@@ -98,7 +106,8 @@ Também existem:
 |---|---|
 | Brain | OpenClaw gateway, StatefulSet, runc, non-root, disk cloned from golden snapshot |
 | Computer | agent-sandbox `Sandbox`, Kata microVM (1.5 vCPU / 3 GiB), non-root sshd :2222, headless Chromium (CDP :9222 via relay), CLI toolbox, 4 GiB workspace |
-| Egress proxy | Envoy `<agent>-egress:3128`, host allowlist from the agent YAML, blocks private/IMDS ranges, access log |
+| Egress proxy | Envoy `<agent>-egress`: :3128 computer (allowlist from the agent YAML), :3129 brain (channel APIs only, e.g. `api.telegram.org`); blocks private/IMDS ranges; access log |
+| Channels | Telegram (long polling, `dmPolicy: pairing`); token from `kv-agentch-*` as env, never in config |
 | Keys | SSH client/host keys + UI token, generated in-cluster by ESO generators |
 | Network | brain → own computer :2222/:9222 and LLM gateway only; computer ← own brain only; computer → own egress proxy only |
 
@@ -158,7 +167,7 @@ Outros menores:
 
 ## 7. Pendências
 
-1. **Rotacione a key do OpenRouter**, porque ela foi colada no chat. Gere uma nova em openrouter.ai/settings/keys e depois rode:
+1. **Rotacione a key do OpenRouter e o token do bot do Telegram**, porque os dois foram colados no chat. Para o bot: no @BotFather use `/revoke` e depois rode `az keyvault secret set --vault-name kv-agentch-jt75 -n alice-assistant-telegram --file <arquivo>`. Para o OpenRouter: Gere uma nova em openrouter.ai/settings/keys e depois rode:
    `az keyvault secret set --vault-name kv-agentpoc-jt75 -n openrouter-api-key --file <arquivo>` — ≈2 min
 2. A sua conta do OpenRouter agora **permite treino com os prompts**, o que foi necessário para o modelo `contributor`. Desligue a opção se trocar de modelo.
 3. Nunca faça commit do `terraform.tfvars`, que contém o subscription id e o e-mail. Ele já está no `.gitignore`.

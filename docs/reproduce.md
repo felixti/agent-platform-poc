@@ -349,6 +349,24 @@ First start: the Kata node scales from 0 (≈2–3 min).
 
 **Check:** `kubectl -n u-alice get pods` shows both pods `Running`, then run §6.
 
+### 4.6b Telegram channel (optional, ≈5 min)
+
+1. Create a bot with @BotFather (`/newbot`).
+2. Store the token (from your own terminal, not a chat):
+   ```bash
+   read -rs TG; printf %s "$TG" > /tmp/tg
+   az keyvault secret set --vault-name kv-agentch-<suffix> -n alice-assistant-telegram --file /tmp/tg -o none
+   shred -u /tmp/tg; unset TG
+   ```
+3. Add to `agents/alice/assistant.yaml` and push:
+   ```yaml
+   channels:
+     telegram:
+       enabled: true
+   ```
+   Enable it only **after** the secret exists: the brain waits for the Secret otherwise.
+4. Message the bot; it answers with a pairing code. Approve it (§playbook 1).
+
 ### 4.7 Use it
 
 See [`playbook.md` §1](playbook.md#1-daily-use-5-minutes): port-forward
@@ -426,6 +444,13 @@ Run after §4.6. Each item maps to an acceptance criterion in `design.md`.
    $X browser doctor && $X browser open https://en.wikipedia.org/wiki/Kata_Containers && $X browser snapshot | head
    $X sandbox explain --agent main     # "browser" must be in the allow list
    ```
+9. **Telegram (polling via the brain listener).** Gateway log shows `starting provider (@<bot>)` and
+   `polling ingress started`; proxy log shows only `brain CONNECT api.telegram.org:443 -> 200`;
+   the token is not in the config file:
+   ```bash
+   kubectl -n u-alice logs deploy/assistant-egress | grep brain | tail -3
+   kubectl -n u-alice exec assistant-brain-0 -c brain -- sh -c 'grep -c "<token prefix>" /data/gateway/openclaw.json'   # expect 0
+   ```
 8. **Headlamp.** `kubectl -n headlamp port-forward svc/headlamp 4466:80`, open `http://localhost:4466`, paste `kubectl -n headlamp create token headlamp --duration=1h`.
 
 Not yet automated (P4): cross-employee isolation (alice × bob), snapshot restore,
@@ -470,4 +495,4 @@ Every infrastructure change in this PoC was presented with a per-action cost tab
 | P4 | Acceptance tests with evidence; CNPG backups to Blob; daily VolumeSnapshots |
 | P5 | `hermes` brain kind |
 | Phase 2 | Custom stateless brain (pi-durable + Postgres event log); agent-sandbox HTTP API instead of SSH; per-employee Blob containers via Workload Identity |
-| Housekeeping | Rotate the PoC LLM key (it was pasted in a chat) |
+| Housekeeping | Rotate the PoC LLM key and the Telegram bot token (both were pasted in a chat; bot: @BotFather `/revoke`, then update `alice-assistant-telegram` in `kv-agentch-*`) |
