@@ -9,7 +9,10 @@ Rule: **recurring billing off on day 1**; check again **5 days before the end**.
 
 ## Day 1: activate (≈15 min)
 
-1. Sign in to https://admin.microsoft.com as the tenant's Global Administrator.
+1. Sign in to https://admin.microsoft.com as `felix@felixtilive.onmicrosoft.com`. The
+   `@live.com` owner is a consumer account and is refused ("Login is not supported for
+   consumer users without business presence"). On 2026-11-09 `felix@` received only
+   **Billing, License and Teams Administrator** (no Global Admin).
 2. Billing → Purchase services → *Microsoft 365 Business Basic* → **Start free trial**.
 3. Users → Active users → `felix@felixtilive.onmicrosoft.com` → Licenses → assign
    Business Basic. The user already exists (created 2026-11-09, `usageLocation: BR`,
@@ -40,10 +43,11 @@ Rule: **recurring billing off on day 1**; check again **5 days before the end**.
    - Check that **Recurring billing is Off**.
    - Or choose **Cancel subscription**. If the button is missing, open a ticket:
      Support → New service request.
-4. Platform side: disable the channel so the agent does not keep retrying.
+4. Remove the three admin roles from `felix@` (Entra → Users → felix → Assigned roles).
+5. Platform side: disable the channel so the agent does not keep retrying.
    - Set `channels.msteams.enabled: false` in `agents/alice/assistant.yaml`, then push.
    - Optional: delete the Azure Bot resource (F0, free).
-5. Check: Billing → Bills & payments has no upcoming charge, and the `az rest` output
+6. Check: Billing → Bills & payments has no upcoming charge, and the `az rest` output
    shows `status: Warning`/`Suspended` after the end date (not `Enabled` with
    `trial: False`).
 
