@@ -16,7 +16,8 @@ llm:
 
 brain:
   openclaw:
-    image: ghcr.io/openclaw/openclaw:2026.11.1@sha256:db0e0809fbd0df375445e9eea8daf2a278ac7ac3a263fa6bfce8fb344ad3ad77
+    # upstream ghcr.io/openclaw/openclaw:2026.11.1 + pinned channel plugins (images/brain-openclaw)
+    image: ghcr.io/felixti/agent-brain-openclaw:2eae4c529c2e33b21ed39a82ddd138e250a74816@sha256:0e41a2ba5cf221fcae79b74994fff6a229b689a994023b1434af2ec6e2047140
     port: 18789
   resources:
     requests: {cpu: 200m, memory: 1Gi}
