@@ -3,6 +3,8 @@
 > **Right now:** the cluster costs ~R$1.50/h while running. Stop it when done:
 > `az aks stop -g aks-lab -n aks-lab` (≈3 min).
 
+PT-BR: [`playbook.pt-br.md`](playbook.pt-br.md).
+
 Status on 2026-11-09: **P0, P1, P2 done.** One OpenClaw agent (`alice/assistant`) runs end to end.
 Diagram: [`docs/topology.html`](topology.html).
 
