@@ -98,7 +98,12 @@ spec:
         ports:
         - {name: http, containerPort: {{ $port }}}
         env:
-        - {name: HOME, value: /home/node}
+        # State lives under $HOME/.openclaw on the PVC. The PVC root is owned by
+        # root (fsGroup only sets the group), so OpenClaw must create .openclaw
+        # itself to own it (it chmods its state dir).
+        - {name: HOME, value: /data}
+        - {name: OPENCLAW_NO_RESPAWN, value: "1"}
+        - {name: NODE_COMPILE_CACHE, value: /tmp/openclaw-compile-cache}
         - {name: OPENCLAW_CONFIG_PATH, value: /etc/openclaw/openclaw.json}
         - name: OPENCLAW_GATEWAY_TOKEN
           valueFrom: {secretKeyRef: {name: {{ .Values.name }}-gateway-token, key: password}}
@@ -115,7 +120,7 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
         volumeMounts:
-        - {name: state, mountPath: /home/node/.openclaw}
+        - {name: state, mountPath: /data}
         - {name: config-rw, mountPath: /etc/openclaw}
         - {name: tmp, mountPath: /tmp}
       volumes:
