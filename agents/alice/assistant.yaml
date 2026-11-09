@@ -28,6 +28,13 @@ egress:
   - "*.googlevideo.com"
   - "*.gstatic.com"
   - fonts.googleapis.com
+  # Reddit (pages, API, static assets, images/video); no ads
+  - reddit.com
+  - "*.reddit.com"
+  - redd.it
+  - "*.redd.it"
+  - "*.redditstatic.com"
+  - "*.redditmedia.com"
 # Messaging channels. Token: Key Vault kv-agentch-* secret "alice-assistant-telegram".
 channels:
   telegram:
