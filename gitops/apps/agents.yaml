@@ -51,3 +51,6 @@ spec:
             {{- if hasKey . "channels" }}
             channels: {{ toJson .channels }}
             {{- end }}
+            {{- if hasKey . "computer" }}
+            computer: {{ toJson .computer }}
+            {{- end }}
