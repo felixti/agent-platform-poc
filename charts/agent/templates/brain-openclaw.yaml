@@ -12,7 +12,7 @@
       "identityData" (merge (dict "id" "SSH_IDENTITY") $envRef)
       "knownHostsData" (merge (dict "id" "SSH_KNOWN_HOSTS") $envRef) }}
 {{- $config := dict
-      "gateway" (dict "controlUi" (dict "allowedOrigins" (list (printf "http://localhost:%d" $port) (printf "http://127.0.0.1:%d" $port))))
+      "gateway" (dict "mode" "local" "controlUi" (dict "allowedOrigins" (list (printf "http://localhost:%d" $port) (printf "http://127.0.0.1:%d" $port))))
       "models" (dict "providers" (dict .Values.llm.providerName $provider))
       "agents" (dict "defaults" (dict
           "model" (dict "primary" (printf "%s/%s" .Values.llm.providerName .Values.model))
