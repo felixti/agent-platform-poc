@@ -46,6 +46,8 @@ Depois de ligar o cluster, a primeira mensagem pode levar ≈2 min: o node Kata 
 
 ### Falar com o agente no Microsoft Teams
 
+No tenant da empresa, com chamados ou automatizado: [runbooks/teams-bot-enterprise.pt-br.md](runbooks/teams-bot-enterprise.pt-br.md).
+
 1. Gere o pacote do app (≈1 min): `python3 teams-app/build.py agents/alice/assistant.yaml`.
 2. Entre no Teams com o usuário licenciado (`felix@felixtilive.onmicrosoft.com`). Vá em Apps → Gerenciar seus apps → Carregar um app → *Carregar um app personalizado* e escolha `teams-app/dist/alice-assistant.zip`.
 3. Abra uma conversa com o bot. Na primeira mensagem, ele responde com um código de pareamento. Aprove o código:

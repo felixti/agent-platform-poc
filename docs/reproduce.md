@@ -386,6 +386,8 @@ New agent: add its host to `certificate.yaml` and run `tofu apply` (redirect URI
 
 ### 4.6d Microsoft Teams channel (optional, ≈30 min)
 
+Company tenant, manual (tickets) and automated paths: [runbooks/teams-bot-enterprise.md](runbooks/teams-bot-enterprise.md).
+
 Needs a tenant with a Teams license (D59, [runbooks/m365-trial.md](runbooks/m365-trial.md)).
 
 1. Add to the agent file: `channels: {msteams: {enabled: false}}`.
@@ -541,6 +543,7 @@ Every infrastructure change in this PoC was presented with a per-action cost tab
 |---|---|
 | P3 | In progress (D52–D58): Telegram ✔ → HTTPS + Entra ✔ → schedule-based hibernation |
 | P3 | Teams channel (D59–D61): bot, route, JWT, plugin image ✔, verified via Direct Line ✔ → M365 trial → upload app package → pairing |
+| P3+ | Teams automation (runbook Part B): CI builds the app zip, Graph submit/approve to the org catalog, proactive install, `allowlist` by owner object ID instead of pairing, workload identity instead of the bot secret |
 | P3+ | Teams plugin loads with a trust warning (`record-missing`, origin=config): install it through `openclaw plugins install` from an offline archive so it is recorded as official; switch the bot secret to workload identity (federated credential) |
 | Billing | M365 trial: recurring billing off; cancel check at end − 5 days, see [runbooks/m365-trial.md](runbooks/m365-trial.md) |
 | P3+ | Per-employee authorization on the Gateway (Entra group/claim per agent host); today any user assigned to the app can open any agent UI |
