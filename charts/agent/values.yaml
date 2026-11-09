@@ -63,6 +63,15 @@ channels:
   telegram:
     enabled: false
     dmPolicy: pairing        # pairing | allowlist | open | disabled
+  # Microsoft Teams (Azure Bot, single tenant). Webhook: Teams -> public Gateway
+  # https://<employee>-<name>.<domain>/api/messages (no Entra login; Bot Framework
+  # JWT checked at the Gateway and again by the Teams SDK). Replies go out via
+  # the egress proxy brain listener. Secret: Key Vault "<employee>-<name>-msteams".
+  msteams:
+    enabled: false
+    appId: ""                # Azure Bot / Entra app client ID
+    tenantId: ""
+    dmPolicy: pairing
 
 # Public UI at https://<employee>-<name>.<domain> behind Entra ID (platform
 # Gateway "public", gitops/platform/ingress). Host must also be in the

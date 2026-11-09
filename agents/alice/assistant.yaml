@@ -39,3 +39,7 @@ egress:
 channels:
   telegram:
     enabled: true
+  # Teams: tofu (infra/platform/teams.tf) creates the bot; then fill appId/tenantId
+  # from `tofu output teams_bots` and set enabled: true.
+  msteams:
+    enabled: false

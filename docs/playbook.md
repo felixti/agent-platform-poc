@@ -114,7 +114,7 @@ Also: Storage account `stagentpocjt75` (artifacts, keyless, unused yet), budget 
 | Brain | OpenClaw gateway, StatefulSet, runc, non-root, disk cloned from golden snapshot |
 | Computer | agent-sandbox `Sandbox`, Kata microVM (1.5 vCPU / 3 GiB), non-root sshd :2222, headless Chromium (CDP :9222 via relay), CLI toolbox, 4 GiB workspace |
 | Egress proxy | Envoy `<agent>-egress`: :3128 computer (allowlist from the agent YAML), :3129 brain (channel APIs only, e.g. `api.telegram.org`); blocks private/IMDS ranges; access log |
-| Channels | Telegram (long polling, `dmPolicy: pairing`); token from `kv-agentch-*` as env, never in config |
+| Channels | Telegram (long polling, `dmPolicy: pairing`); Microsoft Teams (Azure Bot F0 webhook `/api/messages`, Bot Framework JWT at the Gateway, replies via proxy :3129); secrets from `kv-agentch-*` as env, never in config |
 | Keys | SSH client/host keys + UI token, generated in-cluster by ESO generators |
 | Network | brain → own computer :2222/:9222 and LLM gateway only; computer ← own brain only; computer → own egress proxy only |
 

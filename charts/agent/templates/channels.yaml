@@ -21,3 +21,24 @@ spec:
     remoteRef:
       key: {{ .Values.employee }}-{{ .Values.name }}-telegram
 {{- end }}
+{{- if .Values.channels.msteams.enabled }}
+---
+# Teams bot client secret: Key Vault "<employee>-<name>-msteams" -> env
+# MSTEAMS_APP_PASSWORD on this agent's brain only.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {{ .Values.name }}-msteams
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.channels.secretStore }}
+  target:
+    name: {{ .Values.name }}-msteams
+  data:
+  - secretKey: appPassword
+    remoteRef:
+      key: {{ .Values.employee }}-{{ .Values.name }}-msteams
+{{- end }}

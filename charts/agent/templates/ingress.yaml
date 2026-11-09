@@ -15,6 +15,43 @@ spec:
   rules:
   - backendRefs:
     - {name: {{ .Values.name }}-brain, port: {{ .Values.brain.openclaw.port }}}
+{{- if .Values.channels.msteams.enabled }}
+---
+# Teams webhook. Separate route so its own SecurityPolicy replaces the
+# Gateway-wide Entra login (a bot cannot sign in): the Gateway only lets
+# through requests with a Bot Framework JWT for this bot (aud = appId).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Values.name }}-msteams
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+  - {name: {{ .Values.ingress.gateway.name }}, namespace: {{ .Values.ingress.gateway.namespace }}, sectionName: https}
+  hostnames: [{{ include "agent.publicHost" . | quote }}]
+  rules:
+  - matches:
+    - path: {type: Exact, value: /api/messages}
+      method: POST
+    backendRefs:
+    - {name: {{ .Values.name }}-brain, port: {{ .Values.brain.openclaw.port }}}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: {{ .Values.name }}-msteams-jwt
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  targetRefs:
+  - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: {{ .Values.name }}-msteams}
+  jwt:
+    providers:
+    - name: botframework
+      issuer: https://api.botframework.com
+      audiences: [{{ .Values.channels.msteams.appId | quote }}]
+      remoteJWKS:
+        uri: https://login.botframework.com/v1/.well-known/keys
+{{- end }}
 ---
 # Brain UI reachable only from the public Gateway's Envoy pods.
 apiVersion: networking.k8s.io/v1
