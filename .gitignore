@@ -16,3 +16,6 @@ id_*
 
 # Environment-specific values (subscription id, e-mails): keep out of the public repo
 terraform.tfvars
+
+# archify working folders (evidence); final diagram lives in docs/
+.archify/
