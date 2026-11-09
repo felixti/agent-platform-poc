@@ -1,0 +1,24 @@
+# Non-root sshd: can only authenticate the user it runs as (agent).
+Port 2222
+ListenAddress 0.0.0.0
+HostKey /run/agent-ssh/ssh_host_ed25519_key
+AuthorizedKeysFile /run/agent-ssh/authorized_keys
+PidFile none
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+UsePAM no
+StrictModes no
+AllowUsers agent
+AllowTcpForwarding no
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+GatewayPorts no
+X11Forwarding no
+PermitTunnel no
+PermitUserEnvironment no
+ClientAliveInterval 30
+ClientAliveCountMax 4
+LogLevel VERBOSE
+Subsystem sftp internal-sftp
