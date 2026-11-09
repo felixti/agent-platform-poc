@@ -79,6 +79,12 @@ Depois de ligar o cluster, a primeira mensagem pode levar ≈2 min: o node Kata 
 
 1. Edite `egress.allow` em `agents/<id>/<name>.yaml` e faça commit e push. Em ≈3 min o proxy e a política do browser são atualizados.
 2. Para ver o que o agente tentou acessar: `kubectl -n u-<id> logs deploy/<name>-egress | tail`. Um 403 significa bloqueado.
+3. Para mapear um site:
+   - liste o domínio raiz **e** o `*.domínio`, porque o wildcard não cobre o domínio raiz;
+   - abra o site;
+   - conte os hosts bloqueados: `kubectl -n u-<id> logs deploy/<name>-egress --since=5m | grep -v " 200 " | awk '{print $4}' | sort | uniq -c | sort -rn`.
+
+   Exemplo: o conjunto do YouTube da alice em `agents/alice/assistant.yaml`.
 
 ---
 
