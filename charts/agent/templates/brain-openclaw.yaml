@@ -29,6 +29,8 @@
        the egress proxy enforces the same list at the network layer). */}}
 {{- $ssrf := dict "dangerouslyAllowPrivateNetwork" false "allowedHostnames" (concat (list (include "agent.computerHost" .)) .Values.egress.allow) }}
 {{- $_ := set $config "browser" (dict "enabled" true "defaultProfile" "computer" "profiles" (dict "computer" $profile) "ssrfPolicy" $ssrf) }}
+{{- /* The default "coding" tool profile has no browser tool: add just that one. */}}
+{{- $_ := set $config "tools" (dict "alsoAllow" (list "browser")) }}
 {{- end }}
 {{- /* Platform-owned keys, re-applied with `openclaw config set` on every start
        (the seeded file is the brain's own after first boot). */}}
@@ -36,6 +38,7 @@
 {{- if .Values.computer.browser.enabled }}
 {{- $platformSet = append $platformSet (dict "path" "browser" "value" $config.browser) }}
 {{- $platformSet = append $platformSet (dict "path" "agents.defaults.sandbox.browser" "value" $sandbox.browser) }}
+{{- $platformSet = append $platformSet (dict "path" "tools.alsoAllow" "value" $config.tools.alsoAllow) }}
 {{- end }}
 apiVersion: v1
 kind: ConfigMap
