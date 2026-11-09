@@ -25,6 +25,33 @@ metadata:
 data:
   openclaw.json: {{ toPrettyJson $config | quote }}
 ---
+# Pre-provisioned handle to the platform's golden snapshot, bound into this
+# employee namespace (VolumeSnapshots are namespaced; the content is not).
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotContent
+metadata:
+  name: {{ .Values.employee }}-{{ .Values.name }}-brain-golden
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  deletionPolicy: Retain
+  driver: disk.csi.azure.com
+  volumeSnapshotClassName: agent-disk-snapshot
+  source:
+    snapshotHandle: {{ required "brain.stateSnapshotHandle is required" .Values.brain.stateSnapshotHandle }}
+  volumeSnapshotRef:
+    name: {{ .Values.name }}-brain-golden
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: {{ .Values.name }}-brain-golden
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  volumeSnapshotClassName: agent-disk-snapshot
+  source:
+    volumeSnapshotContentName: {{ .Values.employee }}-{{ .Values.name }}-brain-golden
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -71,11 +98,13 @@ spec:
       enableServiceLinks: false
       nodeSelector:
         agentplatform.io/pool: platform
+      # No fsGroup: the kubelet would re-add group write to the state disk,
+      # which OpenClaw's state-dir safety checks reject. Ownership comes from
+      # the golden snapshot instead (uid 1000, 0700).
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
-        fsGroup: 1000
         seccompProfile: {type: RuntimeDefault}
       initContainers:
       # The gateway rewrites its config at runtime: start from a fresh copy.
@@ -98,9 +127,8 @@ spec:
         ports:
         - {name: http, containerPort: {{ $port }}}
         env:
-        # State lives under $HOME/.openclaw on the PVC. The PVC root is owned by
-        # root (fsGroup only sets the group), so OpenClaw must create .openclaw
-        # itself to own it (it chmods its state dir).
+        # State lives under $HOME/.openclaw on the PVC (cloned from the golden
+        # snapshot, root dir owned by uid 1000 with mode 0700).
         - {name: HOME, value: /data}
         - {name: OPENCLAW_NO_RESPAWN, value: "1"}
         - {name: NODE_COMPILE_CACHE, value: /tmp/openclaw-compile-cache}
@@ -134,6 +162,10 @@ spec:
   - metadata:
       name: state
     spec:
+      dataSource:
+        apiGroup: snapshot.storage.k8s.io
+        kind: VolumeSnapshot
+        name: {{ .Values.name }}-brain-golden
       accessModes: [ReadWriteOnce]
       storageClassName: {{ .Values.storageClassName }}
       resources:

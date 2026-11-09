@@ -22,6 +22,10 @@ brain:
     requests: {cpu: 200m, memory: 1Gi}
     limits: {memory: 3Gi}
   storage: 2Gi
+  # Golden empty disk (root owned by uid 1000, mode 0700) from
+  # gitops/platform/brain-disk-template. Brain state PVCs are cloned from it so
+  # off-the-shelf brains (SQLite state) never need root to fix ownership.
+  stateSnapshotHandle: /subscriptions/9cee39bb-0212-4483-855e-7cdb5f6d3155/resourceGroups/MC_aks-lab_aks-lab_eastus/providers/Microsoft.Compute/snapshots/snapshot-0ec8899f-01b4-4d18-82af-6a3d57e73ee1
 
 computer:
   image: ghcr.io/felixti/agent-sandbox-ssh:latest@sha256:73268388ca30d192e7bc339aaf81d5d025c6291c583682b9c4197016b1e61b86
