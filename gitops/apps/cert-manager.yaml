@@ -31,13 +31,14 @@ spec:
     server: https://kubernetes.default.svc
     namespace: cert-manager
   ignoreDifferences:
-  # caBundle is injected at runtime by cert-manager's cainjector.
+  # caBundle: injected by cert-manager cainjector. namespaceSelector: AKS
+  # admissions enforcer appends control-plane / managedby exclusions.
   - group: admissionregistration.k8s.io
     kind: ValidatingWebhookConfiguration
-    jqPathExpressions: [".webhooks[].clientConfig.caBundle"]
+    jqPathExpressions: [".webhooks[].clientConfig.caBundle", ".webhooks[].namespaceSelector"]
   - group: admissionregistration.k8s.io
     kind: MutatingWebhookConfiguration
-    jqPathExpressions: [".webhooks[].clientConfig.caBundle"]
+    jqPathExpressions: [".webhooks[].clientConfig.caBundle", ".webhooks[].namespaceSelector"]
   syncPolicy:
     automated: {prune: true, selfHeal: true}
     syncOptions: [CreateNamespace=true, ServerSideApply=true, RespectIgnoreDifferences=true]
