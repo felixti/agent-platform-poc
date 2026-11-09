@@ -44,6 +44,15 @@ Depois de ligar o cluster, a primeira mensagem pode levar ≈2 min: o node Kata 
    kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve telegram <CODE> --notify
    ```
 
+### Falar com o agente no Microsoft Teams
+
+1. Gere o pacote do app (≈1 min): `python3 teams-app/build.py agents/alice/assistant.yaml`.
+2. Entre no Teams com o usuário licenciado (`felix@felixtilive.onmicrosoft.com`). Vá em Apps → Gerenciar seus apps → Carregar um app → *Carregar um app personalizado* e escolha `teams-app/dist/alice-assistant.zip`.
+3. Abra uma conversa com o bot. Na primeira mensagem, ele responde com um código de pareamento. Aprove o código:
+   ```bash
+   kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve msteams <CODE>
+   ```
+
 ### UI de operação (Headlamp)
 
 1. Abra o túnel: `kubectl -n headlamp port-forward svc/headlamp 4466:80`

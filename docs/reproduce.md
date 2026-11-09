@@ -148,6 +148,7 @@ OpenClaw and Hermes run their gateway on the host with sandboxed tool backends.
 | D58 | Agent UI exposure | Agent chart adds `HTTPRoute <employee>-<name>.<domain>` → brain :18789, NetworkPolicy allowing **only** the public Envoy pods (`owning-gateway-name=public`) to the brain, and `https://<host>` in OpenClaw `gateway.controlUi.allowedOrigins` (platform-owned key). OpenClaw token still required | Exposing the brain Service directly · disabling the OpenClaw token |
 | D59 | Teams channel tenant | **Microsoft 365 Business Basic trial (30 days) in the AKS tenant** `felixtilive.onmicrosoft.com`, licensed member user `felix@…onmicrosoft.com`; recurring billing off on day 1; cancel check at end − 5 days ([runbook](runbooks/m365-trial.md)) | Personal M365 / free Teams (no custom bots) · M365 Developer sandbox (eligibility uncertain) · company tenant (needs admin approval; target for production) |
 | D60 | Teams channel wiring | OpenClaw bundled `msteams` plugin. **Infra:** `infra/platform/teams.tf` per agent with a `channels.msteams` block: single-tenant Entra app + secret (`kv-agentch-*`, `<employee>-<name>-msteams`), Azure Bot **F0**, Teams channel, endpoint `https://<employee>-<name>.<domain>/api/messages`. **Ingress:** separate `HTTPRoute <name>-msteams` (Exact `/api/messages`, POST) whose route-level `SecurityPolicy` (Bot Framework JWT, `aud = appId`, JWKS `login.botframework.com`) replaces the Gateway-wide Entra login for that path only. **Egress:** brain gets `HTTPS_PROXY` = proxy :3129 + `NODE_USE_ENV_PROXY=1` (the Teams SDK has no proxy key), `NO_PROXY` for in-cluster; brain listener adds `login.microsoftonline.com`, `login.botframework.com`, `*.botframework.com`, `smba.trafficmanager.net`. Secret as env `MSTEAMS_APP_PASSWORD`, never in the config | Teams CLI-managed bot (outside IaC) · exempting the whole host from OIDC · direct brain egress · workload identity (next step: no secret) |
+| D61 | Brain image | `images/brain-openclaw` = upstream `openclaw:2026.11.1` (digest-pinned) + **official external** channel plugins installed at build time, pinned to the core version (`@openclaw/msteams@2026.11.1`, `--legacy-peer-deps`, no `openclaw` copy). Loaded via `plugins.load.paths` + `plugins.entries.msteams.enabled` (platform-owned keys). Built by CI, pinned by digest in `charts/agent/values.yaml` | Runtime `openclaw plugins install` (brain would need npm egress = code download at runtime) · install into the PVC at init |
 | D56 | Computer hibernation | **Schedule-based** for the PoC (CronJob sets `Sandbox.spec.operatingMode` outside working hours); idle-based wake-up deferred to the custom brain (needs a controller, brains have no API token) | Idle-based controller now |
 
 ---
@@ -396,6 +397,8 @@ Needs a tenant with a Teams license (D59, [runbooks/m365-trial.md](runbooks/m365
 4. Build the Teams app package (manifest + icons, `botId = appId`) and upload it in Teams (Apps → Manage your apps → Upload a custom app).
 5. DM the bot. It replies with a pairing code. Approve it: `openclaw pairing approve msteams <CODE>`.
 
+App package: `python3 teams-app/build.py agents/<employee>/<name>.yaml` → `teams-app/dist/<employee>-<name>.zip`. The tenant must allow custom app upload (Teams admin center → Teams apps → Setup policies → *Upload custom apps* on; Org-wide app settings → *Custom apps* on).
+
 ### 4.7 Use it
 
 See [`playbook.md` §1](playbook.md#1-daily-use-5-minutes): port-forward
@@ -434,6 +437,8 @@ All fixes are already in the code; this explains **why** the code looks the way 
 | P22 | `browser.profiles.*.color` rejected | Not in the OpenClaw 2026.11 schema | Removed; validate with `openclaw config set ... --dry-run` |
 | P25 | `https://youtube.com` blocked though `www.youtube.com` was allowed; page loaded without images/fonts/video | Allowlists match exact hosts; `*.domain` excludes the apex (Envoy and OpenClaw SSRF alike); sites pull assets from other domains | List apex **and** `*.domain`; map the rest from the proxy 403 log (`logs deploy/<agent>-egress | grep -v " 200 "`), allow what the feature needs, leave ads/telemetry blocked |
 | P26 | Reddit allowed (`reddit.com`, `*.reddit.com`, `redd.it`, `*.redd.it`, `*.redditstatic.com`, `*.redditmedia.com`) but every page says "blocked by network security" / "whoa there, pardner!"; JSON endpoints 403 | Not our proxy (CONNECT returns 200): Reddit blocks anonymous traffic from cloud/datacenter IPs (the AKS egress IP) | Open: log in to Reddit in the agent browser, or use the OAuth API (`oauth.reddit.com`, app approval required); a residential egress is out of scope |
+| P27 | `channels.msteams is configured but no channel plugin is installed` + `npm 403 registry.npmjs.org` from the brain | `msteams` is an *official external* plugin, not bundled in `openclaw:2026.11.1` (docs say bundled); the gateway tried to fetch it and the egress proxy blocked npm (correct) | Own brain image with the plugin pinned (D61) |
+| P28 | Doctor pinned `channels.msteams.legacyWebhook: {port: 3978}` (extra listener) | Migration logic treats the install as pre-existing | Platform key `legacyWebhook: false`; webhook only on the Gateway port (`/api/messages`) |
 | P24 | New agent `HTTPRoute` missing although the app showed Synced | Argo had not re-rendered the agent ApplicationSet app at the new revision | Hard refresh (`argocd.argoproj.io/refresh=hard`) on the agent Application |
 | P23 | Bot "silent" on first DM; `pairing list` empty | The message never reached the bot (`channel_ingress_events` = 0, Bot API `pending_update_count` = 0): chat not started / wrong bot | Open `@<bot>` exactly, press **Start**, then message; check `channel_ingress_events` in `/data/.openclaw/state/openclaw.sqlite` before suspecting polling |
 
@@ -484,6 +489,10 @@ Run after §4.6. Each item maps to an acceptance criterion in `design.md`.
    kubectl -n u-alice logs deploy/assistant-egress | grep brain | tail -3
    kubectl -n u-alice exec assistant-brain-0 -c brain -- sh -c 'grep -c "<token prefix>" /data/gateway/openclaw.json'   # expect 0
    ```
+11. **Teams.** Brain log shows `[msteams] starting provider account default (Gateway route /api/messages)`. Requests without a Bot Framework JWT get `401` at the Gateway, and the UI still redirects to Entra. A Direct Line message (Azure Bot → *Test in Web Chat*, or the Direct Line API) produces `brain CONNECT login.microsoftonline.com 200` and `directline.botframework.com 200` in the proxy log:
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST https://alice-assistant.<domain>/api/messages -d '{}'   # 401
+   ```
 9. **Public HTTPS + Entra.** Expect `302` to `login.microsoftonline.com` on both hosts, `301` on http, a Let's Encrypt cert with both SANs, and `Accepted` on the policy:
    ```bash
    curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://alice-assistant.20-121-208-105.sslip.io/
@@ -530,7 +539,8 @@ Every infrastructure change in this PoC was presented with a per-action cost tab
 | Phase | Item |
 |---|---|
 | P3 | In progress (D52–D58): Telegram ✔ → HTTPS + Entra ✔ → schedule-based hibernation |
-| P3 | Teams channel (D59/D60) in progress: chart + tofu ready (plan: 6 to add) → M365 trial → apply → Teams app package → pairing |
+| P3 | Teams channel (D59–D61): bot, route, JWT, plugin image ✔, verified via Direct Line ✔ → M365 trial → upload app package → pairing |
+| P3+ | Teams plugin loads with a trust warning (`record-missing`, origin=config): install it through `openclaw plugins install` from an offline archive so it is recorded as official; switch the bot secret to workload identity (federated credential) |
 | Billing | M365 trial: recurring billing off; cancel check at end − 5 days, see [runbooks/m365-trial.md](runbooks/m365-trial.md) |
 | P3+ | Per-employee authorization on the Gateway (Entra group/claim per agent host); today any user assigned to the app can open any agent UI |
 | P3+ | Egress: per-agent allowlist done (D45). Next: TLS-level checks (SNI must match CONNECT host), per-request audit to Log Analytics, Headlamp plugin "Agents" |

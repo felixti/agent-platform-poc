@@ -43,6 +43,15 @@ First message after a cold start can take ≈2 min: the Kata node scales up from
    kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve telegram <CODE> --notify
    ```
 
+### Talk to the agent on Microsoft Teams
+
+1. Build the app package (≈1 min): `python3 teams-app/build.py agents/alice/assistant.yaml`.
+2. In Teams, signed in as the licensed user (`felix@felixtilive.onmicrosoft.com`): Apps → Manage your apps → Upload an app → *Upload a custom app* → `teams-app/dist/alice-assistant.zip`.
+3. Open a chat with the bot. First message: it replies with a pairing code. Approve it:
+   ```bash
+   kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve msteams <CODE>
+   ```
+
 ### Ops UI (Headlamp)
 
 1. Tunnel: `kubectl -n headlamp port-forward svc/headlamp 4466:80`

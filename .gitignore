@@ -19,3 +19,4 @@ terraform.tfvars
 
 # archify working folders (evidence); final diagram lives in docs/
 .archify/
+teams-app/dist/
