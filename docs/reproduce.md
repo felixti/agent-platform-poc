@@ -365,7 +365,7 @@ First start: the Kata node scales from 0 (≈2–3 min).
        enabled: true
    ```
    Enable it only **after** the secret exists: the brain waits for the Secret otherwise.
-4. Message the bot; it answers with a pairing code. Approve it (§playbook 1).
+4. Open the bot by its exact `@username`, press **Start**, send a message; it answers with a pairing code. Approve it with `pairing approve telegram <CODE> --notify` (the first CLI approval also records the command owner).
 
 ### 4.7 Use it
 
@@ -403,6 +403,7 @@ All fixes are already in the code; this explains **why** the code looks the way 
 | P20 | Agent said "no browser tool available" | `coding` tool profile lacks `browser`; sandboxed sessions deny it by default (`openclaw sandbox explain`) | `tools.alsoAllow` + `tools.sandbox.tools.alsoAllow` (D49) |
 | P21 | New computer image not used after sync | agent-sandbox v1.0 does not roll the pod on `podTemplate` change | `kubectl -n u-<id> delete pod <agent>-computer` (workspace PVC is kept) |
 | P22 | `browser.profiles.*.color` rejected | Not in the OpenClaw 2026.11 schema | Removed; validate with `openclaw config set ... --dry-run` |
+| P23 | Bot "silent" on first DM; `pairing list` empty | The message never reached the bot (`channel_ingress_events` = 0, Bot API `pending_update_count` = 0): chat not started / wrong bot | Open `@<bot>` exactly, press **Start**, then message; check `channel_ingress_events` in `/data/.openclaw/state/openclaw.sqlite` before suspecting polling |
 
 ---
 

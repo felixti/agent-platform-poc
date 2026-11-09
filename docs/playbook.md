@@ -27,10 +27,10 @@ First message after a cold start can take ≈2 min: the Kata node scales up from
 
 ### Talk to the agent on Telegram
 
-1. Message **@xppocopenclaw_bot**. First time: it replies with a pairing code.
+1. Open **@xppocopenclaw_bot** (exact username), press **Start**, send a message. First time: it replies with a pairing code. (alice is already paired.)
 2. Approve it (≈1 min):
    ```bash
-   kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve telegram <CODE>
+   kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve telegram <CODE> --notify
    ```
 
 ### Ops UI (Headlamp)

@@ -28,10 +28,10 @@ Depois de ligar o cluster, a primeira mensagem pode levar ≈2 min: o node Kata 
 
 ### Falar com o agente no Telegram
 
-1. Mande uma mensagem para **@xppocopenclaw_bot**. Na primeira vez, ele responde com um código de pareamento.
+1. Abra **@xppocopenclaw_bot** pelo username exato, toque em **Start** e mande uma mensagem. Na primeira vez, ele responde com um código de pareamento. A alice já está pareada.
 2. Aprove o código (≈1 min):
    ```bash
-   kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve telegram <CODE>
+   kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve telegram <CODE> --notify
    ```
 
 ### UI de operação (Headlamp)
