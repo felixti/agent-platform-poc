@@ -1,0 +1,75 @@
+# "Golden" brain state disk: an empty ext4 volume whose root is owned by
+# uid/gid 1000 with mode 0700. Off-the-shelf brains with local SQLite state
+# (OpenClaw, Hermes) require a state dir owned by their user and not writable
+# by anyone else; a fresh Azure Disk root is root:root. Brain PVCs are cloned
+# from this snapshot, so no pod in employee namespaces ever needs root.
+#
+# The custom (pi-durable) brain is stateless (Postgres event log) and does
+# not use this.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: platform-storage
+  labels:
+    # The one-shot prepare Job needs root + CHOWN/FOWNER (baseline).
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: brain-state-golden
+  namespace: platform-storage
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: agent-disk
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: brain-state-golden-prepare
+  namespace: platform-storage
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      nodeSelector: {agentplatform.io/pool: platform}
+      securityContext:
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: prepare
+        image: mcr.microsoft.com/azurelinux/base/core:3.0
+        command: ["sh", "-c", "chown 1000:1000 /data && chmod 0700 /data && ls -ldn /data"]
+        securityContext:
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities: {drop: [ALL], add: [CHOWN, FOWNER]}
+        resources:
+          requests: {cpu: 10m, memory: 16Mi}
+          limits: {memory: 64Mi}
+        volumeMounts:
+        - {name: data, mountPath: /data}
+      volumes:
+      - name: data
+        persistentVolumeClaim: {claimName: brain-state-golden}
+---
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: brain-state-golden
+  namespace: platform-storage
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  volumeSnapshotClassName: agent-disk-snapshot
+  source:
+    persistentVolumeClaimName: brain-state-golden

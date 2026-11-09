@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: brain-disk-template
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/felixti/agent-platform-poc.git
+    targetRevision: main
+    path: gitops/platform/brain-disk-template
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-storage
+  syncPolicy:
+    automated: {prune: false, selfHeal: true}
+    syncOptions: [ServerSideApply=true]
