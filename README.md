@@ -4,7 +4,10 @@ Proof of concept of an open-source platform for **always-on, durable AI agents**
 agent-sandbox + Kata (AKS Pod Sandboxing), Envoy Gateway, CloudNativePG, Valkey,
 Azure Storage, OpenTofu and Argo CD.
 
-See [docs/design.md](docs/design.md) for the full design and decisions.
+- Design: [docs/design.md](docs/design.md)
+- Decision log + end-to-end reproduction: [docs/reproduce.md](docs/reproduce.md)
+- Operations playbook: [docs/playbook.md](docs/playbook.md) ([pt-BR](docs/playbook.pt-br.md))
+- Topology diagram: [docs/topology.html](docs/topology.html)
 
 ## Layout
 

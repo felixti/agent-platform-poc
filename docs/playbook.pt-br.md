@@ -7,7 +7,7 @@
 > `az aks stop -g aks-lab -n aks-lab` (≈3 min).
 
 Status em 2026-11-09: **P0, P1 e P2 concluídas.** Um agente OpenClaw (`alice/assistant`) funciona de ponta a ponta.
-Diagrama: [`docs/topology.html`](topology.html).
+Diagrama: [`docs/topology.html`](topology.html). Como recriar do zero e todas as decisões: [`reproduce.md`](reproduce.md).
 
 ---
 
@@ -15,7 +15,7 @@ Diagrama: [`docs/topology.html`](topology.html).
 
 ### Ligar e abrir a UI do agente
 
-1. Ligue o cluster. Nos dias úteis, entre 08:00 e 21:00 BRT, ele liga sozinho e você pode pular este passo:
+1. Ligue o cluster. O start automático está desligado; o stop das 21:00 BRT nos dias úteis continua ligado:
    `az aks start -g aks-lab -n aks-lab` — ≈5 min
 2. Pegue as credenciais: `az aks get-credentials -g aks-lab -n aks-lab --overwrite-existing`
 3. Abra o túnel e deixe rodando: `kubectl -n u-alice port-forward svc/assistant-brain 18789:18789`

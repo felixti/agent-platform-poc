@@ -6,7 +6,7 @@
 PT-BR: [`playbook.pt-br.md`](playbook.pt-br.md).
 
 Status on 2026-11-09: **P0, P1, P2 done.** One OpenClaw agent (`alice/assistant`) runs end to end.
-Diagram: [`docs/topology.html`](topology.html).
+Diagram: [`docs/topology.html`](topology.html). Rebuild from scratch + every decision: [`reproduce.md`](reproduce.md).
 
 ---
 
@@ -14,7 +14,7 @@ Diagram: [`docs/topology.html`](topology.html).
 
 ### Start and open the agent UI
 
-1. Start the cluster (skip on weekdays 08:00–21:00 BRT, it starts by itself):
+1. Start the cluster (auto-start is off; the 21:00 BRT weekday stop stays on):
    `az aks start -g aks-lab -n aks-lab` — ≈5 min
 2. Get credentials: `az aks get-credentials -g aks-lab -n aks-lab --overwrite-existing`
 3. Open a tunnel (leave it running): `kubectl -n u-alice port-forward svc/assistant-brain 18789:18789`

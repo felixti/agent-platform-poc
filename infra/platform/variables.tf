@@ -79,3 +79,15 @@ variable "tags" {
     project = "agent-platform-poc"
   }
 }
+
+variable "schedule_start_enabled" {
+  description = "Start the cluster automatically on schedule days."
+  type        = bool
+  default     = false
+}
+
+variable "schedule_stop_enabled" {
+  description = "Stop the cluster automatically on schedule days (safety net)."
+  type        = bool
+  default     = true
+}

@@ -88,3 +88,21 @@ resource "azurerm_automation_schedule" "this" {
     ignore_changes = [start_time]
   }
 }
+
+# azurerm has no "enabled" flag for schedules; manage it with azapi.
+# Auto-start is off by default: start the cluster on demand
+# (az aks start -g aks-lab -n aks-lab). The 21:00 stop stays on as a safety net.
+resource "azapi_update_resource" "schedule_enabled" {
+  for_each = {
+    start = var.schedule_start_enabled
+    stop  = var.schedule_stop_enabled
+  }
+
+  type        = "Microsoft.Automation/automationAccounts/schedules@2023-11-01"
+  resource_id = azurerm_automation_schedule.this[each.key].id
+  body = {
+    properties = {
+      isEnabled = each.value
+    }
+  }
+}
