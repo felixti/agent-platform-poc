@@ -65,3 +65,17 @@ spec:
       resources:
         requests:
           storage: {{ .Values.computer.storage }}
+---
+# Stable DNS name for the computer (agent-sandbox v1.0 exposes only pod IPs).
+# Survives suspend/resume: the selector matches whichever pod is current.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "agent.computerHost" . }}
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "agent.labels" . | nindent 4 }}
+    agentplatform.io/role: computer
+  ports:
+  - {name: ssh, port: 2222, targetPort: 2222}
