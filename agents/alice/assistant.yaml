@@ -42,4 +42,6 @@ channels:
   # Teams: tofu (infra/platform/teams.tf) creates the bot; then fill appId/tenantId
   # from `tofu output teams_bots` and set enabled: true.
   msteams:
-    enabled: false
+    enabled: true
+    appId: 94a75066-f5c7-4e40-8044-18813873ef58
+    tenantId: 5f9bf155-4fca-4d0c-8201-ca5e6100f66e
