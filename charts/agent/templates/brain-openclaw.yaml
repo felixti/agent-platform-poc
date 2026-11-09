@@ -24,7 +24,11 @@
        the remote attach-only profile is the only browser the brain has. */}}
 {{- $_ := set $sandbox "browser" (dict "allowHostControl" true) }}
 {{- $profile := dict "cdpUrl" (printf "http://%s:%d" (include "agent.computerHost" .) (int .Values.computer.browser.port)) "attachOnly" true }}
-{{- $_ := set $config "browser" (dict "enabled" true "defaultProfile" "computer" "profiles" (dict "computer" $profile)) }}
+{{- /* Strict SSRF policy stays on. Exceptions: the computer's CDP host and the
+       agent's egress allowlist (strict mode only navigates to listed names;
+       the egress proxy enforces the same list at the network layer). */}}
+{{- $ssrf := dict "dangerouslyAllowPrivateNetwork" false "allowedHostnames" (concat (list (include "agent.computerHost" .)) .Values.egress.allow) }}
+{{- $_ := set $config "browser" (dict "enabled" true "defaultProfile" "computer" "profiles" (dict "computer" $profile) "ssrfPolicy" $ssrf) }}
 {{- end }}
 apiVersion: v1
 kind: ConfigMap
