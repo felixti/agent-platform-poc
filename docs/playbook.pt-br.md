@@ -86,6 +86,8 @@ Depois de ligar o cluster, a primeira mensagem pode levar ≈2 min: o node Kata 
 
    Exemplo: o conjunto do YouTube da alice em `agents/alice/assistant.yaml`.
 
+   Se o log do proxy mostra `200` e a página continua dizendo que está bloqueada, quem recusa é o próprio site, porque ele bloqueia IPs de nuvem. É o caso do Reddit (P26), e a allowlist não resolve isso.
+
 ---
 
 ## 3. O que existe

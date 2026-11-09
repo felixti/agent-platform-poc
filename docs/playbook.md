@@ -78,7 +78,7 @@ First message after a cold start can take ≈2 min: the Kata node scales up from
 
 1. Edit `egress.allow` in `agents/<id>/<name>.yaml`, commit + push (≈3 min; proxy and browser policy both update).
 2. See what it tried: `kubectl -n u-<id> logs deploy/<name>-egress | tail` (403 = blocked).
-3. Mapping a site: list the apex **and** `*.domain` (wildcards exclude the apex), open it, then count blocked hosts: `kubectl -n u-<id> logs deploy/<name>-egress --since=5m | grep -v " 200 " | awk '{print $4}' | sort | uniq -c | sort -rn`. Example: alice's YouTube set in `agents/alice/assistant.yaml`.
+3. Mapping a site: list the apex **and** `*.domain` (wildcards exclude the apex), open it, then count blocked hosts: `kubectl -n u-<id> logs deploy/<name>-egress --since=5m | grep -v " 200 " | awk '{print $4}' | sort | uniq -c | sort -rn`. Example: alice's YouTube set in `agents/alice/assistant.yaml`. If the proxy log shows `200` but the page still says blocked, the site itself refuses cloud IPs (Reddit, P26): allowlisting cannot fix that.
 
 ---
 
