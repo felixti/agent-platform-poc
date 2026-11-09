@@ -10,3 +10,10 @@ agentplatform.io/employee: {{ .Values.employee }}
 agentplatform.io/agent: {{ .Values.name }}
 {{- end -}}
 {{- define "agent.computerHost" -}}{{ .Values.name }}-computer{{- end -}}
+{{- /* Hosts the BRAIN may reach through its egress listener (platform-derived,
+       never from the agent file): one entry per enabled channel. JSON list. */}}
+{{- define "agent.brainEgressAllow" -}}
+{{- $allow := list }}
+{{- if .Values.channels.telegram.enabled }}{{ $allow = append $allow "api.telegram.org" }}{{ end }}
+{{- toJson $allow }}
+{{- end -}}

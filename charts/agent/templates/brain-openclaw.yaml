@@ -33,6 +33,12 @@
        sessions deny it by default: add just that one tool in both layers. */}}
 {{- $_ := set $config "tools" (dict "alsoAllow" (list "browser") "sandbox" (dict "tools" (dict "alsoAllow" (list "browser")))) }}
 {{- end }}
+{{- if .Values.channels.telegram.enabled }}
+{{- /* Token from env TELEGRAM_BOT_TOKEN (never in the config file); Bot API via
+       the egress proxy brain listener (allowlist: api.telegram.org). */}}
+{{- $tg := dict "enabled" true "dmPolicy" .Values.channels.telegram.dmPolicy "proxy" (printf "http://%s-egress:%d" .Values.name (int .Values.egress.brainPort)) }}
+{{- $_ := set $config "channels" (dict "telegram" $tg) }}
+{{- end }}
 {{- /* Platform-owned keys, re-applied with `openclaw config set` on every start
        (the seeded file is the brain's own after first boot). */}}
 {{- $platformSet := list }}
@@ -41,6 +47,9 @@
 {{- $platformSet = append $platformSet (dict "path" "agents.defaults.sandbox.browser" "value" $sandbox.browser) }}
 {{- $platformSet = append $platformSet (dict "path" "tools.alsoAllow" "value" $config.tools.alsoAllow) }}
 {{- $platformSet = append $platformSet (dict "path" "tools.sandbox.tools.alsoAllow" "value" $config.tools.sandbox.tools.alsoAllow) }}
+{{- end }}
+{{- if .Values.channels.telegram.enabled }}
+{{- $platformSet = append $platformSet (dict "path" "channels.telegram" "value" $config.channels.telegram) }}
 {{- end }}
 apiVersion: v1
 kind: ConfigMap
@@ -191,6 +200,10 @@ spec:
         - {name: OPENCLAW_CONFIG_PATH, value: /data/gateway/openclaw.json}
         - name: OPENCLAW_GATEWAY_TOKEN
           valueFrom: {secretKeyRef: {name: {{ .Values.name }}-gateway-token, key: password}}
+        {{- if .Values.channels.telegram.enabled }}
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom: {secretKeyRef: {name: {{ .Values.name }}-telegram, key: botToken}}
+        {{- end }}
         - name: SSH_IDENTITY
           valueFrom: {secretKeyRef: {name: {{ .Values.name }}-ssh-client, key: privateKey}}
         - name: SSH_KNOWN_HOSTS

@@ -1,6 +1,7 @@
 {{- include "agent.validate" . }}
 # On top of the employee namespace's default-deny + DNS:
-#  brain    -> its own computer (ssh) and the platform LLM gateway, nothing else
+#  brain    -> its own computer (ssh, cdp), the platform LLM gateway and, with a
+#              channel enabled, its egress proxy brain listener (channel API only)
 #  computer <- its own brain only (ssh, and CDP when the browser is enabled)
 #  computer -> its own egress proxy only (when egress.allow is set); else DNS only
 apiVersion: networking.k8s.io/v1
@@ -32,6 +33,15 @@ spec:
         matchLabels: {gateway.envoyproxy.io/owning-gateway-name: {{ .Values.llm.gatewayName }}}
     ports:
     - {port: 10080, protocol: TCP}   # Envoy container port for listener :80
+  {{- if include "agent.brainEgressAllow" . | fromJsonArray }}
+  - to:
+    - podSelector:
+        matchLabels:
+          {{- include "agent.labels" . | nindent 10 }}
+          agentplatform.io/role: egress
+    ports:
+    - {port: {{ .Values.egress.brainPort }}, protocol: TCP}
+  {{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

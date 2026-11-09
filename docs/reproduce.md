@@ -140,6 +140,11 @@ OpenClaw and Hermes run their gateway on the host with sandboxed tool backends.
 | D49 | OpenClaw strict SSRF policy blocks private CDP endpoints and hostname navigation | Keep strict; `browser.ssrfPolicy.allowedHostnames` = computer host + `egress.allow` (same list enforced twice: OpenClaw and proxy). Browser tool enabled with `tools.alsoAllow` and `tools.sandbox.tools.alsoAllow` (`coding` profile and sandbox defaults exclude it) | `dangerouslyAllowPrivateNetwork: true` · `tools.profile: full` |
 | D50 | Config seeded once (D43) would freeze browser/allowlist settings | Init container re-applies **platform-owned keys** (`browser`, `agents.defaults.sandbox.browser`, `tools.alsoAllow`, `tools.sandbox.tools.alsoAllow`) with `openclaw config set --batch-file` on every start | Reseeding the whole file |
 | D51 | Ops UI | **Headlamp** 0.46.0 (kubernetes-sigs, Apache-2.0) via Argo CD, port-forward + short-lived SA token; custom portal deferred until employee-facing needs are known (it should write to git, not the API) | Kubernetes Dashboard (archived) · Backstage (heavy) · custom portal now |
+| D52 | P3 public HTTPS hostname | `<ingress-ip>.sslip.io` + Let's Encrypt (cert-manager HTTP-01 via Envoy Gateway); static public IP (~R$20/month). Swap for the company domain when porting | Own domain now · self-signed |
+| D53 | P3 authentication | Entra ID OIDC on Envoy Gateway `SecurityPolicy` in front of the OpenClaw UI and Headlamp (app registration in the subscription tenant); OpenClaw gateway token stays as a second factor | Port-forward only · OpenClaw token only |
+| D54 | Telegram transport | **Long polling**; brain reaches only `api.telegram.org` through a dedicated **brain listener (:3129)** on the agent's egress proxy (platform-derived allowlist, separate from the computer's :3128 list); OpenClaw `channels.telegram.proxy`; `dmPolicy: pairing` | Webhook (needs public route; outbound to the Bot API is needed anyway) · giving the brain the computer's allowlist |
+| D55 | Channel token storage | Separate Key Vault **`kv-agentch-<suffix>`** (agent channel secrets only, `<employee>-<agent>-<channel>`), ClusterSecretStore `agent-channels` limited to namespaces with label `agentplatform.io/employee`; token reaches the brain only as env `TELEGRAM_BOT_TOKEN`, never in `openclaw.json` | Label employee namespaces for the platform vault (would expose the OpenRouter key path) · Secret created by hand (breaks "secrets only in Key Vault"). Production: per-employee vault or per-secret RBAC with per-namespace identity |
+| D56 | Computer hibernation | **Schedule-based** for the PoC (CronJob sets `Sandbox.spec.operatingMode` outside working hours); idle-based wake-up deferred to the custom brain (needs a controller, brains have no API token) | Idle-based controller now |
 
 ---
 
@@ -460,7 +465,7 @@ Every infrastructure change in this PoC was presented with a per-action cost tab
 
 | Phase | Item |
 |---|---|
-| P3 | Telegram webhook; HTTPS ingress with Entra ID OIDC (Envoy `SecurityPolicy`, also for Headlamp); idle hibernation |
+| P3 | In progress (D52–D56): Telegram polling → HTTPS + Entra → schedule-based hibernation |
 | P3+ | Egress: per-agent allowlist done (D45). Next: TLS-level checks (SNI must match CONNECT host), per-request audit to Log Analytics, Headlamp plugin "Agents" |
 | P4 | Acceptance tests with evidence; CNPG backups to Blob; daily VolumeSnapshots |
 | P5 | `hermes` brain kind |

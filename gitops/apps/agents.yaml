@@ -43,3 +43,6 @@ spec:
             {{- if hasKey . "egress" }}
             egress: {{ toJson .egress }}
             {{- end }}
+            {{- if hasKey . "channels" }}
+            channels: {{ toJson .channels }}
+            {{- end }}

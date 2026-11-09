@@ -1,30 +1,36 @@
 {{- include "agent.validate" . }}
-{{- if .Values.egress.allow }}
-# Per-agent egress proxy: the computer's ONLY way to the internet.
-# Envoy dynamic forward proxy (HTTP CONNECT + plain HTTP) with a host allowlist
-# from agents/<employee>/<name>.yaml. Anything else gets 403 and is logged.
+{{- $brainAllow := include "agent.brainEgressAllow" . | fromJsonArray }}
+{{- if or .Values.egress.allow $brainAllow }}
+# Per-agent egress proxy: the ONLY way out to the internet for this agent.
+# Envoy dynamic forward proxy (HTTP CONNECT + plain HTTP), one listener per
+# client, each with its own host allowlist; anything else gets 403 and is logged.
+#   :3128 computer — egress.allow from agents/<employee>/<name>.yaml
+#   :3129 brain    — platform-derived (enabled channels, e.g. api.telegram.org)
 # Separate pod (runc, platform pool) so the agent cannot rewrite or bypass it.
+{{- $clients := list }}
+{{- if .Values.egress.allow }}{{ $clients = append $clients (dict "name" "computer" "port" .Values.egress.port "allow" .Values.egress.allow) }}{{ end }}
+{{- if $brainAllow }}{{ $clients = append $clients (dict "name" "brain" "port" .Values.egress.brainPort "allow" $brainAllow) }}{{ end }}
+{{- $listeners := list }}
+{{- range $clients }}
 {{- $domains := list }}
-{{- range .Values.egress.allow }}
+{{- range .allow }}
 {{- $domains = append $domains . }}
 {{- $domains = append $domains (printf "%s:443" .) }}
 {{- end }}
-{{- $envoy := dict
-  "static_resources" (dict
-    "listeners" (list (dict
-      "name" "egress"
-      "address" (dict "socket_address" (dict "address" "0.0.0.0" "port_value" (int .Values.egress.port)))
+{{- $listeners = append $listeners (dict
+      "name" .name
+      "address" (dict "socket_address" (dict "address" "0.0.0.0" "port_value" (int .port)))
       "filter_chains" (list (dict "filters" (list (dict
         "name" "envoy.filters.network.http_connection_manager"
         "typed_config" (dict
           "@type" "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
-          "stat_prefix" "egress"
+          "stat_prefix" .name
           "upgrade_configs" (list (dict "upgrade_type" "CONNECT"))
           "access_log" (list (dict
             "name" "envoy.access_loggers.stdout"
             "typed_config" (dict
               "@type" "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog"
-              "log_format" (dict "text_format_source" (dict "inline_string" "[%START_TIME%] %REQ(:METHOD)% %REQ(:AUTHORITY)% -> %RESPONSE_CODE% %RESPONSE_FLAGS% up=%BYTES_SENT% down=%BYTES_RECEIVED% %DURATION%ms\n")))))
+              "log_format" (dict "text_format_source" (dict "inline_string" (printf "[%%START_TIME%%] %s %%REQ(:METHOD)%% %%REQ(:AUTHORITY)%% -> %%RESPONSE_CODE%% %%RESPONSE_FLAGS%% up=%%BYTES_SENT%% down=%%BYTES_RECEIVED%% %%DURATION%%ms\n" .name))))))
           "http_filters" (list
             (dict "name" "envoy.filters.http.dynamic_forward_proxy"
                   "typed_config" (dict
@@ -41,7 +47,11 @@
             (dict "name" "denied" "domains" (list "*") "routes" (list
               (dict "match" (dict "connect_matcher" (dict)) "direct_response" (dict "status" 403))
               (dict "match" (dict "prefix" "/")
-                    "direct_response" (dict "status" 403 "body" (dict "inline_string" "egress denied by agent policy\n"))))))))))))))
+                    "direct_response" (dict "status" 403 "body" (dict "inline_string" "egress denied by agent policy\n"))))))))))))) }}
+{{- end }}
+{{- $envoy := dict
+  "static_resources" (dict
+    "listeners" $listeners
     "clusters" (list (dict
       "name" "dfp"
       "connect_timeout" "5s"
@@ -92,14 +102,16 @@ spec:
         image: {{ .Values.egress.image }}
         args: ["-c", "/etc/envoy/envoy.yaml", "--log-level", "warn"]
         ports:
-        - {name: proxy, containerPort: {{ .Values.egress.port }}}
+        {{- range $clients }}
+        - {name: {{ .name }}, containerPort: {{ .port }}}
+        {{- end }}
         resources: {{- toYaml .Values.egress.resources | nindent 10 }}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           capabilities: {drop: [ALL]}
         readinessProbe:
-          tcpSocket: {port: {{ .Values.egress.port }}}
+          tcpSocket: {port: {{ (first $clients).port }}}
           periodSeconds: 10
         volumeMounts:
         - {name: config, mountPath: /etc/envoy, readOnly: true}
@@ -117,9 +129,12 @@ spec:
     {{- include "agent.labels" . | nindent 4 }}
     agentplatform.io/role: egress
   ports:
-  - {name: proxy, port: {{ .Values.egress.port }}, targetPort: {{ .Values.egress.port }}}
+  {{- range $clients }}
+  - {name: {{ .name }}, port: {{ .port }}, targetPort: {{ .port }}}
+  {{- end }}
 ---
-# Proxy: in from its own computer only; out to public internet on 80/443 only.
+# Proxy: in from its own computer/brain (each on its own listener); out to the
+# public internet on 80/443 only.
 # Private, link-local (IMDS 169.254.169.254) and Azure platform (168.63.129.16)
 # ranges are excluded, so an allowlisted name resolving to an internal IP fails.
 apiVersion: networking.k8s.io/v1
@@ -134,13 +149,15 @@ spec:
       agentplatform.io/role: egress
   policyTypes: [Ingress, Egress]
   ingress:
+  {{- range $clients }}
   - from:
     - podSelector:
         matchLabels:
-          {{- include "agent.labels" . | nindent 10 }}
-          agentplatform.io/role: computer
+          {{- include "agent.labels" $ | nindent 10 }}
+          agentplatform.io/role: {{ .name }}
     ports:
-    - {port: {{ .Values.egress.port }}, protocol: TCP}
+    - {port: {{ .port }}, protocol: TCP}
+  {{- end }}
   egress:
   - to:
     - ipBlock:

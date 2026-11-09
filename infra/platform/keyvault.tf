@@ -1,6 +1,7 @@
-# Platform secrets (OpenRouter key, Telegram token, OIDC client secret, per-agent
-# SSH keys). Read by External Secrets Operator via Workload Identity and only
-# materialised in the gateway / platform namespaces, never in sandboxes.
+# Platform secrets (OpenRouter key, OIDC client secrets). Read by External
+# Secrets Operator via Workload Identity and only materialised in the gateway /
+# platform namespaces, never in employee namespaces. Agent channel tokens live
+# in the separate agent-channels vault (keyvault-agents.tf).
 resource "azurerm_key_vault" "platform" {
   name                       = "kv-agentpoc-${random_string.suffix.result}"
   location                   = azurerm_resource_group.main.location

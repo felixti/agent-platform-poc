@@ -1,0 +1,23 @@
+{{- include "agent.validate" . }}
+{{- if .Values.channels.telegram.enabled }}
+# Telegram bot token: Key Vault (agent-channels vault) -> Secret in this
+# employee namespace, mounted only into this agent's brain as an env var.
+# Create it once:  az keyvault secret set --vault-name <agents vault> \
+#                    -n {{ .Values.employee }}-{{ .Values.name }}-telegram --file <token-file>
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {{ .Values.name }}-telegram
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: {{ .Values.channels.secretStore }}
+  target:
+    name: {{ .Values.name }}-telegram
+  data:
+  - secretKey: botToken
+    remoteRef:
+      key: {{ .Values.employee }}-{{ .Values.name }}-telegram
+{{- end }}
