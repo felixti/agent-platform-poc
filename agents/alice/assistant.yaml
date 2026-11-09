@@ -15,7 +15,19 @@ egress:
   - registry.npmjs.org
   - example.com
   - en.wikipedia.org
-  - www.youtube.com
+  # YouTube (pages, API, player, images, video, fonts); no ads, no Google login
+  - youtube.com
+  - "*.youtube.com"
+  - youtu.be
+  - "*.youtube-nocookie.com"
+  - youtubei.googleapis.com
+  - jnn-pa.googleapis.com
+  - "*.ytimg.com"
+  - "*.ggpht.com"
+  - yt3.googleusercontent.com
+  - "*.googlevideo.com"
+  - "*.gstatic.com"
+  - fonts.googleapis.com
 # Messaging channels. Token: Key Vault kv-agentch-* secret "alice-assistant-telegram".
 channels:
   telegram:
