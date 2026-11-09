@@ -11,9 +11,13 @@ Rule: **recurring billing off on day 1**; check again **5 days before the end**.
 
 1. Sign in to https://admin.microsoft.com as the tenant's Global Administrator.
 2. Billing → Purchase services → *Microsoft 365 Business Basic* → **Start free trial**.
-3. Users → Active users → Add a user: `felix@felixtilive.onmicrosoft.com`, assign the
-   Business Basic license. Use this user for Teams. Your `@live.com` login is a
-   guest and cannot hold the license.
+3. Users → Active users → `felix@felixtilive.onmicrosoft.com` → Licenses → assign
+   Business Basic. The user already exists (created 2026-11-09, `usageLocation: BR`,
+   must change the password at first sign-in). Your `@live.com` login is a guest and
+   cannot hold the license. Initial password:
+   ```bash
+   az keyvault secret show --vault-name kv-agentpoc-jt75 -n teams-user-felix-initial-password --query value -o tsv
+   ```
 4. Billing → Your products → Business Basic → **Recurring billing: Off**. Without it,
    the trial expires instead of converting to paid.
 5. Write down the end date. Then set a calendar reminder for **end date − 5 days**
