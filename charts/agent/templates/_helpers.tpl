@@ -17,3 +17,5 @@ agentplatform.io/agent: {{ .Values.name }}
 {{- if .Values.channels.telegram.enabled }}{{ $allow = append $allow "api.telegram.org" }}{{ end }}
 {{- toJson $allow }}
 {{- end -}}
+
+{{- define "agent.publicHost" -}}{{ .Values.employee }}-{{ .Values.name }}.{{ .Values.ingress.domain }}{{- end -}}

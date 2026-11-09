@@ -63,3 +63,12 @@ channels:
   telegram:
     enabled: false
     dmPolicy: pairing        # pairing | allowlist | open | disabled
+
+# Public UI at https://<employee>-<name>.<domain> behind Entra ID (platform
+# Gateway "public", gitops/platform/ingress). Host must also be in the
+# platform certificate and the Entra redirect URIs (tofu: infra/platform/ingress.tf).
+ingress:
+  enabled: true
+  domain: 20-121-208-105.sslip.io
+  gateway: {name: public, namespace: ingress}
+  proxyNamespace: envoy-gateway-system   # where Envoy Gateway runs proxy pods

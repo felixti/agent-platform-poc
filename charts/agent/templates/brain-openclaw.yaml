@@ -12,8 +12,10 @@
       "identityData" (merge (dict "id" "SSH_IDENTITY") $envRef)
       "knownHostsData" (merge (dict "id" "SSH_KNOWN_HOSTS") $envRef) }}
 {{- $sandbox := dict "mode" "all" "backend" "ssh" "scope" "agent" "workspaceAccess" "rw" "ssh" $ssh }}
+{{- $origins := list (printf "http://localhost:%d" $port) (printf "http://127.0.0.1:%d" $port) }}
+{{- if .Values.ingress.enabled }}{{ $origins = append $origins (printf "https://%s" (include "agent.publicHost" .)) }}{{ end }}
 {{- $config := dict
-      "gateway" (dict "mode" "local" "controlUi" (dict "allowedOrigins" (list (printf "http://localhost:%d" $port) (printf "http://127.0.0.1:%d" $port))))
+      "gateway" (dict "mode" "local" "controlUi" (dict "allowedOrigins" $origins))
       "models" (dict "providers" (dict .Values.llm.providerName $provider))
       "agents" (dict "defaults" (dict
           "model" (dict "primary" (printf "%s/%s" .Values.llm.providerName .Values.model))
@@ -42,6 +44,7 @@
 {{- /* Platform-owned keys, re-applied with `openclaw config set` on every start
        (the seeded file is the brain's own after first boot). */}}
 {{- $platformSet := list }}
+{{- $platformSet = append $platformSet (dict "path" "gateway.controlUi.allowedOrigins" "value" $origins) }}
 {{- if .Values.computer.browser.enabled }}
 {{- $platformSet = append $platformSet (dict "path" "browser" "value" $config.browser) }}
 {{- $platformSet = append $platformSet (dict "path" "agents.defaults.sandbox.browser" "value" $sandbox.browser) }}

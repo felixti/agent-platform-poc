@@ -1,0 +1,41 @@
+{{- include "agent.validate" . }}
+{{- if .Values.ingress.enabled }}
+# Public UI: https://<employee>-<name>.<domain> on the platform Gateway. Entra ID
+# sign-in is enforced by the Gateway's SecurityPolicy; the OpenClaw token is
+# still required by the UI itself.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Values.name }}-ui
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+  - {name: {{ .Values.ingress.gateway.name }}, namespace: {{ .Values.ingress.gateway.namespace }}, sectionName: https}
+  hostnames: [{{ include "agent.publicHost" . | quote }}]
+  rules:
+  - backendRefs:
+    - {name: {{ .Values.name }}-brain, port: {{ .Values.brain.openclaw.port }}}
+---
+# Brain UI reachable only from the public Gateway's Envoy pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.name }}-brain-ingress
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "agent.labels" . | nindent 6 }}
+      agentplatform.io/role: brain
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels: {kubernetes.io/metadata.name: {{ .Values.ingress.proxyNamespace }}}
+      podSelector:
+        matchLabels:
+          gateway.envoyproxy.io/owning-gateway-name: {{ .Values.ingress.gateway.name }}
+          gateway.envoyproxy.io/owning-gateway-namespace: {{ .Values.ingress.gateway.namespace }}
+    ports:
+    - {port: {{ .Values.brain.openclaw.port }}, protocol: TCP}
+{{- end }}

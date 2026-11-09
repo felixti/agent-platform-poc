@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress
+  labels:
+    # Pulls the OIDC client secret from the platform Key Vault (ESO).
+    agentplatform.io/secrets-access: "true"

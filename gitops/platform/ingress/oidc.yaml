@@ -1,0 +1,33 @@
+# Entra ID sign-in in front of every route on the public Gateway. App
+# registration + client secret come from OpenTofu (infra/platform/ingress.tf);
+# only users assigned to the app can sign in. UIs keep their own token as a
+# second factor.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: ingress-oidc
+  namespace: ingress
+spec:
+  refreshInterval: 1h
+  secretStoreRef: {kind: ClusterSecretStore, name: platform-keyvault}
+  target: {name: ingress-oidc}
+  data:
+  - secretKey: client-secret
+    remoteRef: {key: ingress-oidc-client-secret}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: entra-oidc
+  namespace: ingress
+spec:
+  targetRefs:
+  - {group: gateway.networking.k8s.io, kind: Gateway, name: public, sectionName: https}
+  oidc:
+    provider:
+      issuer: https://login.microsoftonline.com/5f9bf155-4fca-4d0c-8201-ca5e6100f66e/v2.0
+    clientID: f1f0c17c-91cb-4f28-9cb1-2362016be1e8
+    clientSecret: {name: ingress-oidc}
+    scopes: [openid, profile, email]
+    logoutPath: /oauth2/logout
+    refreshToken: true
