@@ -44,7 +44,9 @@
 {{- if .Values.channels.msteams.enabled }}
 {{- /* Secret from env MSTEAMS_APP_PASSWORD (never in the config file). Outbound
        (token, replies) via HTTPS_PROXY = egress proxy brain listener. */}}
-{{- $ms := dict "enabled" true "appId" .Values.channels.msteams.appId "tenantId" .Values.channels.msteams.tenantId "dmPolicy" .Values.channels.msteams.dmPolicy "webhook" (dict "path" "/api/messages") }}
+{{- $ms := dict "enabled" true "appId" .Values.channels.msteams.appId "tenantId" .Values.channels.msteams.tenantId "dmPolicy" .Values.channels.msteams.dmPolicy "webhook" (dict "path" "/api/messages") "legacyWebhook" false }}
+{{- /* Official external plugin baked into the brain image (images/brain-openclaw). */}}
+{{- $_ := set $config "plugins" (dict "load" (dict "paths" (list .Values.channels.msteams.pluginPath)) "entries" (dict "msteams" (dict "enabled" true))) }}
 {{- $channels := $config.channels | default dict }}
 {{- $_ := set $channels "msteams" $ms }}
 {{- $_ := set $config "channels" $channels }}
@@ -64,6 +66,8 @@
 {{- end }}
 {{- if .Values.channels.msteams.enabled }}
 {{- $platformSet = append $platformSet (dict "path" "channels.msteams" "value" $config.channels.msteams) }}
+{{- $platformSet = append $platformSet (dict "path" "plugins.load.paths" "value" $config.plugins.load.paths) }}
+{{- $platformSet = append $platformSet (dict "path" "plugins.entries.msteams.enabled" "value" true) }}
 {{- end }}
 apiVersion: v1
 kind: ConfigMap

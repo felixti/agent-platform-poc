@@ -72,6 +72,7 @@ channels:
     appId: ""                # Azure Bot / Entra app client ID
     tenantId: ""
     dmPolicy: pairing
+    pluginPath: /opt/openclaw-plugins/node_modules/@openclaw/msteams   # in brain.openclaw.image
 
 # Public UI at https://<employee>-<name>.<domain> behind Entra ID (platform
 # Gateway "public", gitops/platform/ingress). Host must also be in the
