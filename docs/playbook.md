@@ -164,6 +164,8 @@ More, smaller: ESO SSH keys need `refreshInterval: "0"`; quota requires resource
 
 ## 7. Housekeeping
 
+0. **M365 trial (Teams):** turn recurring billing off on day 1, then check and cancel **5 days before the end date**. Steps: [runbooks/m365-trial.md](runbooks/m365-trial.md).
+
 1. **Rotate the OpenRouter key and the Telegram bot token** (both pasted in chat). Bot: @BotFather `/revoke`, then `az keyvault secret set --vault-name kv-agentch-jt75 -n alice-assistant-telegram --file <file>`. OpenRouter key — openrouter.ai/settings/keys, then:
    `az keyvault secret set --vault-name kv-agentpoc-jt75 -n openrouter-api-key --file <file>` — ≈2 min
 2. OpenRouter account now **allows training on prompts** (needed for the `contributor` model). Turn it off if you switch models.

@@ -186,6 +186,8 @@ Outros menores:
 
 ## 7. Pendências
 
+0. **Trial do M365 (Teams):** desligue a cobrança recorrente no primeiro dia. Depois, confira e cancele **5 dias antes do fim do trial**. O passo a passo está em [runbooks/m365-trial.md](runbooks/m365-trial.md).
+
 1. **Rotacione a key do OpenRouter e o token do bot do Telegram**, porque os dois foram colados no chat. Para o bot: no @BotFather use `/revoke` e depois rode `az keyvault secret set --vault-name kv-agentch-jt75 -n alice-assistant-telegram --file <arquivo>`. Para o OpenRouter: Gere uma nova em openrouter.ai/settings/keys e depois rode:
    `az keyvault secret set --vault-name kv-agentpoc-jt75 -n openrouter-api-key --file <arquivo>` — ≈2 min
 2. A sua conta do OpenRouter agora **permite treino com os prompts**, o que foi necessário para o modelo `contributor`. Desligue a opção se trocar de modelo.
