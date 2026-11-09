@@ -1,0 +1,5 @@
+apiVersion: v2
+name: agent
+description: One always-on agent = brain (trusted loop, runc) + computer (Kata sandbox, SSH)
+type: application
+version: 0.1.0

@@ -1,0 +1,117 @@
+# Internal OpenAI-compatible LLM gateway (egress for agent brains).
+#   brain --http--> llm-gateway (Envoy) --https + injected key--> openrouter.ai
+# Brains never see the provider key. To switch to the company AI gateway,
+# change the Backend FQDN and the Key Vault secret; agents are unchanged.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: envoy
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: internal-clusterip
+  namespace: llm-gateway
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        name: llm-gateway          # stable DNS: llm-gateway.envoy-gateway-system.svc
+        type: ClusterIP            # internal only, no public IP
+      envoyDeployment:
+        replicas: 1
+        pod:
+          nodeSelector: {agentplatform.io/pool: platform}
+        container:
+          resources:
+            requests: {cpu: 20m, memory: 64Mi}
+            limits: {memory: 256Mi}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: llm-gateway
+  namespace: llm-gateway
+spec:
+  gatewayClassName: envoy
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: internal-clusterip
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces: {from: Same}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: openrouter
+  namespace: llm-gateway
+spec:
+  endpoints:
+  - fqdn: {hostname: openrouter.ai, port: 443}
+  tls:
+    wellKnownCACertificates: System
+    sni: openrouter.ai
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: HTTPRouteFilter
+metadata:
+  name: inject-openrouter-key
+  namespace: llm-gateway
+spec:
+  credentialInjection:
+    header: Authorization
+    overwrite: true               # drop anything the caller sent
+    credential:
+      valueRef:
+        name: openrouter-credential
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: openai-compatible
+  namespace: llm-gateway
+spec:
+  parentRefs:
+  - name: llm-gateway
+  rules:
+  - matches:
+    - path: {type: PathPrefix, value: /api/v1/}
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        hostname: openrouter.ai
+    - type: ExtensionRef
+      extensionRef:
+        group: gateway.envoyproxy.io
+        kind: HTTPRouteFilter
+        name: inject-openrouter-key
+    backendRefs:
+    - group: gateway.envoyproxy.io
+      kind: Backend
+      name: openrouter
+---
+# LLM rate limit: global ceiling for the PoC (per-agent limits: P3).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: llm-rate-limit
+  namespace: llm-gateway
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: openai-compatible
+  rateLimit:
+    type: Local
+    local:
+      rules:
+      - limit: {requests: 120, unit: Minute}

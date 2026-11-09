@@ -6,8 +6,12 @@ resource "azurerm_kubernetes_cluster_node_pool" "platform" {
   os_sku                = "AzureLinux"
   os_disk_size_gb       = 64
   os_disk_type          = "Ephemeral" # OS on the VM cache/temp disk: no managed-disk cost, faster IO
-  node_count            = 1
   mode                  = "User"
+
+  # 1 node normally; a 2nd only when pods do not fit (AKS add-ons land here too).
+  auto_scaling_enabled = true
+  min_count            = 1
+  max_count            = 2
 
   node_labels = {
     "agentplatform.io/pool" = "platform"

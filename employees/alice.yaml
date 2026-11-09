@@ -1,0 +1,4 @@
+# One file per employee. Drives: namespace u-<id> + policies (Argo CD).
+# Azure identity + Blob container per employee: added with the artifacts feature.
+id: alice
+displayName: Alice (fictional, PoC)

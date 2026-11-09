@@ -1,0 +1,68 @@
+{{- include "agent.validate" . }}
+# Credentials generated in-cluster by External Secrets generators (generated
+# once, refreshInterval 0). Nothing here comes from Key Vault or git.
+#  - client key: brain authenticates to its computer
+#  - host key:   brain verifies its computer (strict host key checking)
+#  - gateway token: protects the brain's control UI / API
+apiVersion: generators.external-secrets.io/v1alpha1
+kind: SSHKey
+metadata:
+  name: {{ .Values.name }}-ssh
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  keyType: ed25519
+  comment: {{ .Values.employee }}/{{ .Values.name }}
+---
+apiVersion: generators.external-secrets.io/v1alpha1
+kind: Password
+metadata:
+  name: {{ .Values.name }}-token
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  length: 40
+  digits: 8
+  symbols: 0
+  noUpper: false
+  allowRepeat: true
+{{- range $role := list "client" "host" }}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {{ $.Values.name }}-ssh-{{ $role }}
+  labels: {{- include "agent.labels" $ | nindent 4 }}
+spec:
+  refreshInterval: "0"
+  target:
+    name: {{ $.Values.name }}-ssh-{{ $role }}
+    {{- if eq $role "host" }}
+    template:
+      engineVersion: v2
+      data:
+        privateKey: "{{ "{{" }} .privateKey {{ "}}" }}"
+        publicKey: "{{ "{{" }} .publicKey {{ "}}" }}"
+        known_hosts: "[{{ include "agent.computerHost" $ }}]:2222 {{ "{{" }} .publicKey | trim {{ "}}" }}"
+    {{- end }}
+  dataFrom:
+  - sourceRef:
+      generatorRef:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: SSHKey
+        name: {{ $.Values.name }}-ssh
+{{- end }}
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {{ .Values.name }}-gateway-token
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  refreshInterval: "0"
+  target:
+    name: {{ .Values.name }}-gateway-token
+  dataFrom:
+  - sourceRef:
+      generatorRef:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        name: {{ .Values.name }}-token

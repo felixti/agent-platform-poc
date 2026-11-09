@@ -1,0 +1,8 @@
+# id: employee identifier; namespace is u-<id> (set by the ApplicationSet)
+id: ""
+quota:
+  requestsCpu: "3"
+  requestsMemory: 8Gi
+  limitsMemory: 16Gi
+  persistentVolumeClaims: "10"
+  storage: 60Gi

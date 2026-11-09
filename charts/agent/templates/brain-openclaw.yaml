@@ -1,0 +1,134 @@
+{{- include "agent.validate" . }}
+{{- if eq .Values.brainKind "openclaw" }}
+{{- $port := int .Values.brain.openclaw.port }}
+{{- $model := dict "id" .Values.model "name" .Values.model "reasoning" false "input" (list "text") "contextWindow" (int .Values.llm.contextWindow) "maxTokens" (int .Values.llm.maxTokens) }}
+{{- $provider := dict "baseUrl" .Values.llm.baseUrl "apiKey" "injected-by-platform-gateway" "api" "openai-completions" "models" (list $model) }}
+{{- $envRef := dict "source" "env" "provider" "default" }}
+{{- $ssh := dict
+      "target" (printf "agent@%s:2222" (include "agent.computerHost" .))
+      "workspaceRoot" "/workspace/sandboxes"
+      "strictHostKeyChecking" true
+      "updateHostKeys" false
+      "identityData" (merge (dict "id" "SSH_IDENTITY") $envRef)
+      "knownHostsData" (merge (dict "id" "SSH_KNOWN_HOSTS") $envRef) }}
+{{- $config := dict
+      "gateway" (dict "controlUi" (dict "allowedOrigins" (list (printf "http://localhost:%d" $port) (printf "http://127.0.0.1:%d" $port))))
+      "models" (dict "providers" (dict .Values.llm.providerName $provider))
+      "agents" (dict "defaults" (dict
+          "model" (dict "primary" (printf "%s/%s" .Values.llm.providerName .Values.model))
+          "sandbox" (dict "mode" "all" "backend" "ssh" "scope" "agent" "workspaceAccess" "rw" "ssh" $ssh))) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-brain-config
+  labels: {{- include "agent.labels" . | nindent 4 }}
+data:
+  openclaw.json: {{ toPrettyJson $config | quote }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.name }}-brain
+  labels: {{- include "agent.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}-brain
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "agent.labels" . | nindent 4 }}
+    agentplatform.io/role: brain
+  ports:
+  - {name: http, port: {{ $port }}, targetPort: {{ $port }}}
+---
+# The brain: trusted agent loop (OpenClaw gateway). Runs with runc on the
+# platform pool, holds its own state on a PVC, no provider credentials.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.name }}-brain
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ .Values.name }}-brain
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "agent.labels" . | nindent 6 }}
+      agentplatform.io/role: brain
+  template:
+    metadata:
+      labels:
+        {{- include "agent.labels" . | nindent 8 }}
+        agentplatform.io/role: brain
+      annotations:
+        checksum/config: {{ toJson $config | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Values.name }}-brain
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        agentplatform.io/pool: platform
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+      # The gateway rewrites its config at runtime: start from a fresh copy.
+      - name: init-config
+        image: {{ .Values.brain.openclaw.image }}
+        command: ["sh", "-c", "cp /config/openclaw.json /etc/openclaw/openclaw.json"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: [ALL]}
+        volumeMounts:
+        - {name: config, mountPath: /config}
+        - {name: config-rw, mountPath: /etc/openclaw}
+      containers:
+      - name: brain
+        image: {{ .Values.brain.openclaw.image }}
+        args: ["node", "openclaw.mjs", "gateway", "--bind", "lan", "--port", "{{ $port }}"]
+        ports:
+        - {name: http, containerPort: {{ $port }}}
+        env:
+        - {name: HOME, value: /home/node}
+        - {name: OPENCLAW_CONFIG_PATH, value: /etc/openclaw/openclaw.json}
+        - name: OPENCLAW_GATEWAY_TOKEN
+          valueFrom: {secretKeyRef: {name: {{ .Values.name }}-gateway-token, key: password}}
+        - name: SSH_IDENTITY
+          valueFrom: {secretKeyRef: {name: {{ .Values.name }}-ssh-client, key: privateKey}}
+        - name: SSH_KNOWN_HOSTS
+          valueFrom: {secretKeyRef: {name: {{ .Values.name }}-ssh-host, key: known_hosts}}
+        resources: {{- toYaml .Values.brain.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: [ALL]}
+        readinessProbe:
+          tcpSocket: {port: {{ $port }}}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - {name: state, mountPath: /home/node/.openclaw}
+        - {name: config-rw, mountPath: /etc/openclaw}
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - name: config
+        configMap: {name: {{ .Values.name }}-brain-config}
+      - name: config-rw
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: state
+    spec:
+      accessModes: [ReadWriteOnce]
+      storageClassName: {{ .Values.storageClassName }}
+      resources:
+        requests:
+          storage: {{ .Values.brain.storage }}
+{{- end }}

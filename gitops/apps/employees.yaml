@@ -1,0 +1,40 @@
+# employees/<id>.yaml -> Application employee-<id> -> namespace u-<id>
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: employees
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+  - git:
+      repoURL: https://github.com/felixti/agent-platform-poc.git
+      revision: main
+      files:
+      - path: employees/*.yaml
+  template:
+    metadata:
+      name: 'employee-{{ .id }}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/felixti/agent-platform-poc.git
+        targetRevision: main
+        path: charts/employee
+        helm:
+          valuesObject:
+            id: '{{ .id }}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'u-{{ .id }}'
+      syncPolicy:
+        automated: {prune: true, selfHeal: true}
+        syncOptions: [CreateNamespace=true, ServerSideApply=true]
+        managedNamespaceMetadata:
+          labels:
+            pod-security.kubernetes.io/enforce: restricted
+            pod-security.kubernetes.io/warn: restricted
+            agentplatform.io/employee: '{{ .id }}'

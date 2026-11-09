@@ -1,0 +1,42 @@
+# agents/<employee>/<name>.yaml -> Application agent-<employee>-<name>
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: agents
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+  - git:
+      repoURL: https://github.com/felixti/agent-platform-poc.git
+      revision: main
+      files:
+      - path: agents/*/*.yaml
+  template:
+    metadata:
+      name: 'agent-{{ .employee }}-{{ .name }}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/felixti/agent-platform-poc.git
+        targetRevision: main
+        path: charts/agent
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: 'u-{{ .employee }}'
+      syncPolicy:
+        automated: {prune: true, selfHeal: true}
+        syncOptions: [ServerSideApply=true]
+  # Pass the whole agent file as Helm values.
+  templatePatch: |
+    spec:
+      source:
+        helm:
+          valuesObject:
+            employee: {{ .employee | quote }}
+            name: {{ .name | quote }}
+            brainKind: {{ .brainKind | quote }}
+            model: {{ .model | quote }}

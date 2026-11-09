@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm-gateway
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    agentplatform.io/secrets-access: "true"

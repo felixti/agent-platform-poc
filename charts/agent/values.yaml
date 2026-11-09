@@ -1,0 +1,36 @@
+# Set per agent by agents/<employee>/<name>.yaml (ApplicationSet).
+employee: ""
+name: ""
+brainKind: openclaw          # openclaw | hermes (P5) | pi-durable (phase 2)
+model: ""                    # provider model id, e.g. meta/muse-spark-1.3-contributor
+
+llm:
+  # OpenAI-compatible endpoint. The platform gateway injects credentials,
+  # so brains never hold a provider key.
+  providerName: llmgw
+  baseUrl: http://llm-gateway.envoy-gateway-system.svc/api/v1
+  gatewayNamespace: envoy-gateway-system
+  gatewayName: llm-gateway
+  contextWindow: 262144
+  maxTokens: 8192
+
+brain:
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:2026.11.1@sha256:db0e0809fbd0df375445e9eea8daf2a278ac7ac3a263fa6bfce8fb344ad3ad77
+    port: 18789
+  resources:
+    requests: {cpu: 200m, memory: 1Gi}
+    limits: {memory: 3Gi}
+  storage: 2Gi
+
+computer:
+  image: ghcr.io/felixti/agent-sandbox-ssh:latest@sha256:73268388ca30d192e7bc339aaf81d5d025c6291c583682b9c4197016b1e61b86
+  runtimeClassName: kata-vm-isolation
+  # The Kata pod VM is sized from the limits.
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+  storage: 4Gi
+  operatingMode: Running     # Running | Suspended (hibernate, keeps the PVC)
+
+storageClassName: agent-disk

@@ -1,0 +1,5 @@
+# One file per agent. Merge a PR here = agent provisioned.
+employee: alice
+name: assistant
+brainKind: openclaw
+model: meta/muse-spark-1.3-contributor

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: employee
+description: Per-employee isolation boundary (namespace policies, quota)
+type: application
+version: 0.1.0

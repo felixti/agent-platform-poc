@@ -1,0 +1,67 @@
+{{- include "agent.validate" . }}
+# The agent's computer: a Kata microVM (own guest kernel) with a persistent
+# workspace. Holds no credentials; only its brain may SSH in.
+apiVersion: agents.x-k8s.io/v1beta1
+kind: Sandbox
+metadata:
+  name: {{ include "agent.computerHost" . }}
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  operatingMode: {{ .Values.computer.operatingMode }}
+  podTemplate:
+    metadata:
+      labels:
+        {{- include "agent.labels" . | nindent 8 }}
+        agentplatform.io/role: computer
+    spec:
+      runtimeClassName: {{ .Values.computer.runtimeClassName }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        agentplatform.io/pool: sandbox
+      tolerations:
+      - {key: agentplatform.io/sandbox, operator: Equal, value: "true", effect: NoSchedule}
+      - {key: kubernetes.azure.com/scalesetpriority, operator: Equal, value: spot, effect: NoSchedule}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: computer
+        image: {{ .Values.computer.image }}
+        ports:
+        - {name: ssh, containerPort: 2222}
+        resources: {{- toYaml .Values.computer.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: {drop: [ALL]}
+        readinessProbe:
+          tcpSocket: {port: 2222}
+          periodSeconds: 5
+        volumeMounts:
+        - {name: workspace, mountPath: /workspace}
+        - {name: ssh-runtime, mountPath: /run/agent-ssh}
+        - {name: host-key, mountPath: /etc/agent-ssh/host, readOnly: true}
+        - {name: client-pub, mountPath: /etc/agent-ssh/client, readOnly: true}
+      volumes:
+      - name: ssh-runtime
+        emptyDir: {medium: Memory, sizeLimit: 1Mi}
+      - name: host-key
+        secret:
+          secretName: {{ .Values.name }}-ssh-host
+          items: [{key: privateKey, path: privateKey}]
+      - name: client-pub
+        secret:
+          secretName: {{ .Values.name }}-ssh-client
+          items: [{key: publicKey, path: publicKey}]
+  volumeClaimTemplates:
+  - metadata:
+      name: workspace
+    spec:
+      accessModes: [ReadWriteOnce]
+      storageClassName: {{ .Values.storageClassName }}
+      resources:
+        requests:
+          storage: {{ .Values.computer.storage }}
