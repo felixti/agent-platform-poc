@@ -54,6 +54,14 @@ Company tenant (tickets or automated): [runbooks/teams-bot-enterprise.md](runboo
    kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve msteams <CODE>
    ```
 
+### Agent computers sleep at night
+
+Computers (Kata VMs) sleep at **20:00 every day** and wake at **08:00 Mon-Fri** (Sao Paulo time). The brain stays up: Telegram/Teams keep answering, but browser/shell tools fail while the computer sleeps.
+
+- Wake one now (about 1 min): `kubectl -n u-alice patch sandbox assistant-computer --type merge -p '{"spec":{"operatingMode":"Running"}}'`
+- Wake all now: `kubectl -n agent-hibernation create job wake-now --from=cronjob/computers-wake`
+- Opt an agent out: `computer: {hibernate: "off"}` in its agent file.
+
 ### Ops UI (Headlamp)
 
 1. Tunnel: `kubectl -n headlamp port-forward svc/headlamp 4466:80`
@@ -125,6 +133,7 @@ Also: Storage account `stagentpocjt75` (artifacts, keyless, unused yet), budget 
 | Brain | OpenClaw gateway, StatefulSet, runc, non-root, disk cloned from golden snapshot |
 | Computer | agent-sandbox `Sandbox`, Kata microVM (1.5 vCPU / 3 GiB), non-root sshd :2222, headless Chromium (CDP :9222 via relay), CLI toolbox, 4 GiB workspace |
 | Egress proxy | Envoy `<agent>-egress`: :3128 computer (allowlist from the agent YAML), :3129 brain (channel APIs only, e.g. `api.telegram.org`); blocks private/IMDS ranges; access log |
+| Hibernation | CronJobs in `agent-hibernation`: computers sleep 20:00 daily, wake 08:00 Mon-Fri (America/Sao_Paulo); brains always on |
 | Channels | Telegram (long polling, `dmPolicy: pairing`); Microsoft Teams (Azure Bot F0 webhook `/api/messages`, Bot Framework JWT at the Gateway, replies via proxy :3129); secrets from `kv-agentch-*` as env, never in config |
 | Keys | SSH client/host keys + UI token, generated in-cluster by ESO generators |
 | Network | brain → own computer :2222/:9222 and LLM gateway only; computer ← own brain only; computer → own egress proxy only |

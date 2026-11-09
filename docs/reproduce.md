@@ -149,6 +149,7 @@ OpenClaw and Hermes run their gateway on the host with sandboxed tool backends.
 | D59 | Teams channel tenant | **Microsoft 365 Business Basic trial (30 days) in the AKS tenant** `felixtilive.onmicrosoft.com`, licensed member user `felix@…onmicrosoft.com`; recurring billing off on day 1; cancel check at end − 5 days ([runbook](runbooks/m365-trial.md)) | Personal M365 / free Teams (no custom bots) · M365 Developer sandbox (eligibility uncertain) · company tenant (needs admin approval; target for production) |
 | D60 | Teams channel wiring | OpenClaw bundled `msteams` plugin. **Infra:** `infra/platform/teams.tf` per agent with a `channels.msteams` block: single-tenant Entra app + secret (`kv-agentch-*`, `<employee>-<name>-msteams`), Azure Bot **F0**, Teams channel, endpoint `https://<employee>-<name>.<domain>/api/messages`. **Ingress:** separate `HTTPRoute <name>-msteams` (Exact `/api/messages`, POST) whose route-level `SecurityPolicy` (Bot Framework JWT, `aud = appId`, JWKS `login.botframework.com`) replaces the Gateway-wide Entra login for that path only. **Egress:** brain gets `HTTPS_PROXY` = proxy :3129 + `NODE_USE_ENV_PROXY=1` (the Teams SDK has no proxy key), `NO_PROXY` for in-cluster; brain listener adds `login.microsoftonline.com`, `login.botframework.com`, `*.botframework.com`, `smba.trafficmanager.net`. Secret as env `MSTEAMS_APP_PASSWORD`, never in the config | Teams CLI-managed bot (outside IaC) · exempting the whole host from OIDC · direct brain egress · workload identity (next step: no secret) |
 | D61 | Brain image | `images/brain-openclaw` = upstream `openclaw:2026.11.1` (digest-pinned) + **official external** channel plugins installed at build time, pinned to the core version (`@openclaw/msteams@2026.11.1`, `--legacy-peer-deps`, no `openclaw` copy). Loaded via `plugins.load.paths` + `plugins.entries.msteams.enabled` (platform-owned keys). Built by CI, pinned by digest in `charts/agent/values.yaml` | Runtime `openclaw plugins install` (brain would need npm egress = code download at runtime) · install into the PVC at init |
+| D62 | Hibernation implementation | `gitops/platform/hibernation` (Argo app `hibernation`, wave 25): CronJobs `computers-sleep` (`0 20 * * *`) and `computers-wake` (`0 8 * * 1-5`), `timeZone: America/Sao_Paulo`, run a stdlib Python script (python:3.13-alpine, digest-pinned, PSS restricted, platform pool) that merge-patches `spec.operatingMode` on every Sandbox labelled `agentplatform.io/hibernate=schedule`. RBAC: list + patch sandboxes only. Chart adds the label when `computer.hibernate: schedule` (default); agents ApplicationSet ignores `/spec/operatingMode` (`RespectIgnoreDifferences`). Only the computer sleeps (PVC kept); the brain stays up so Telegram/Teams keep answering. Asleep 108 of 168 h/week (64%); the Kata node scales to 0 when empty (≈R$0,61/h on-demand) | Per-agent schedules (later: annotation with the agent's hours) · idle-based wake (needs a controller; D56) · suspending the brain |
 | D56 | Computer hibernation | **Schedule-based** for the PoC (CronJob sets `Sandbox.spec.operatingMode` outside working hours); idle-based wake-up deferred to the custom brain (needs a controller, brains have no API token) | Idle-based controller now |
 
 ---
@@ -492,6 +493,12 @@ Run after §4.6. Each item maps to an acceptance criterion in `design.md`.
    kubectl -n u-alice logs deploy/assistant-egress | grep brain | tail -3
    kubectl -n u-alice exec assistant-brain-0 -c brain -- sh -c 'grep -c "<token prefix>" /data/gateway/openclaw.json'   # expect 0
    ```
+12. **Hibernation.** Run both CronJobs once by hand; the computer pod goes away and comes back, the PVC stays, Argo stays `Synced`:
+   ```bash
+   kubectl -n agent-hibernation create job sleep-now --from=cronjob/computers-sleep
+   kubectl -n u-alice get sandbox assistant-computer -o jsonpath='{.spec.operatingMode}'   # Suspended
+   kubectl -n agent-hibernation create job wake-now --from=cronjob/computers-wake
+   ```
 11. **Teams.** Brain log shows `[msteams] starting provider account default (Gateway route /api/messages)`. Requests without a Bot Framework JWT get `401` at the Gateway, and the UI still redirects to Entra. A Direct Line message (Azure Bot → *Test in Web Chat*, or the Direct Line API) produces `brain CONNECT login.microsoftonline.com 200` and `directline.botframework.com 200` in the proxy log:
    ```bash
    curl -s -o /dev/null -w '%{http_code}\n' -X POST https://alice-assistant.<domain>/api/messages -d '{}'   # 401
@@ -541,7 +548,8 @@ Every infrastructure change in this PoC was presented with a per-action cost tab
 
 | Phase | Item |
 |---|---|
-| P3 | In progress (D52–D58): Telegram ✔ → HTTPS + Entra ✔ → schedule-based hibernation |
+| P3 | Done (D52–D62): Telegram ✔ → HTTPS + Entra ✔ → schedule-based hibernation ✔ |
+| P3+ | Hibernation: wake on demand when the brain needs the computer at night (today the agent's computer tools fail until 08:00; manual wake in the playbook); per-agent hours |
 | P3 | Teams channel (D59–D61): bot, route, JWT, plugin image ✔, verified via Direct Line ✔ → M365 trial → upload app package → pairing |
 | P3+ | Teams automation (runbook Part B): CI builds the app zip, Graph submit/approve to the org catalog, proactive install, `allowlist` by owner object ID instead of pairing, workload identity instead of the bot secret |
 | P3+ | Teams plugin loads with a trust warning (`record-missing`, origin=config): install it through `openclaw plugins install` from an offline archive so it is recorded as official; switch the bot secret to workload identity (federated credential) |

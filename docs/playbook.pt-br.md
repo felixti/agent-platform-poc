@@ -55,6 +55,14 @@ No tenant da empresa, com chamados ou automatizado: [runbooks/teams-bot-enterpri
    kubectl -n u-alice exec assistant-brain-0 -c brain -- env HOME=/data OPENCLAW_CONFIG_PATH=/data/gateway/openclaw.json node openclaw.mjs pairing approve msteams <CODE>
    ```
 
+### Os computadores dos agentes dormem à noite
+
+Os computadores (VMs Kata) dormem às **20:00 todos os dias** e acordam às **08:00 de segunda a sexta** (horário de São Paulo). O brain continua no ar, então Telegram e Teams seguem respondendo. Já as ferramentas de navegador e shell falham enquanto o computador dorme.
+
+- Acordar um agora (cerca de 1 min): `kubectl -n u-alice patch sandbox assistant-computer --type merge -p '{"spec":{"operatingMode":"Running"}}'`
+- Acordar todos agora: `kubectl -n agent-hibernation create job wake-now --from=cronjob/computers-wake`
+- Tirar um agente da hibernação: `computer: {hibernate: "off"}` no arquivo do agente.
+
 ### UI de operação (Headlamp)
 
 1. Abra o túnel: `kubectl -n headlamp port-forward svc/headlamp 4466:80`
@@ -137,6 +145,7 @@ Também existem:
 | Brain | OpenClaw gateway, StatefulSet, runc, non-root, disk cloned from golden snapshot |
 | Computer | agent-sandbox `Sandbox`, Kata microVM (1.5 vCPU / 3 GiB), non-root sshd :2222, headless Chromium (CDP :9222 via relay), CLI toolbox, 4 GiB workspace |
 | Egress proxy | Envoy `<agent>-egress`: :3128 computer (allowlist from the agent YAML), :3129 brain (channel APIs only, e.g. `api.telegram.org`); blocks private/IMDS ranges; access log |
+| Hibernation | CronJobs in `agent-hibernation`: computers sleep 20:00 daily, wake 08:00 Mon-Fri (America/Sao_Paulo); brains always on |
 | Channels | Telegram (long polling, `dmPolicy: pairing`); Microsoft Teams (Azure Bot F0 webhook `/api/messages`, Bot Framework JWT at the Gateway, replies via proxy :3129); secrets from `kv-agentch-*` as env, never in config |
 | Keys | SSH client/host keys + UI token, generated in-cluster by ESO generators |
 | Network | brain → own computer :2222/:9222 and LLM gateway only; computer ← own brain only; computer → own egress proxy only |
