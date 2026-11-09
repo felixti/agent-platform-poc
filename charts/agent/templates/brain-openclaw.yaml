@@ -107,10 +107,11 @@ spec:
         runAsGroup: 1000
         seccompProfile: {type: RuntimeDefault}
       initContainers:
-      # The gateway rewrites its config at runtime: start from a fresh copy.
+      # The gateway rewrites its config at runtime: start from a fresh copy
+      # of the GitOps-managed config on every start.
       - name: init-config
         image: {{ .Values.brain.openclaw.image }}
-        command: ["sh", "-c", "cp /config/openclaw.json /etc/openclaw/openclaw.json"]
+        command: ["sh", "-c", "mkdir -p -m 0700 /data/config && cp /config/openclaw.json /data/config/openclaw.json && chmod 0600 /data/config/openclaw.json"]
         resources:
           requests: {cpu: 10m, memory: 16Mi}
           limits: {memory: 64Mi}
@@ -119,7 +120,7 @@ spec:
           capabilities: {drop: [ALL]}
         volumeMounts:
         - {name: config, mountPath: /config}
-        - {name: config-rw, mountPath: /etc/openclaw}
+        - {name: state, mountPath: /data}
       containers:
       - name: brain
         image: {{ .Values.brain.openclaw.image }}
@@ -132,7 +133,9 @@ spec:
         - {name: HOME, value: /data}
         - {name: OPENCLAW_NO_RESPAWN, value: "1"}
         - {name: NODE_COMPILE_CACHE, value: /tmp/openclaw-compile-cache}
-        - {name: OPENCLAW_CONFIG_PATH, value: /etc/openclaw/openclaw.json}
+        # Config lives on the brain's own disk: OpenClaw chmods its config dir,
+        # which fails on root-owned emptyDir mount points.
+        - {name: OPENCLAW_CONFIG_PATH, value: /data/config/openclaw.json}
         - name: OPENCLAW_GATEWAY_TOKEN
           valueFrom: {secretKeyRef: {name: {{ .Values.name }}-gateway-token, key: password}}
         - name: SSH_IDENTITY
@@ -149,13 +152,10 @@ spec:
           periodSeconds: 10
         volumeMounts:
         - {name: state, mountPath: /data}
-        - {name: config-rw, mountPath: /etc/openclaw}
         - {name: tmp, mountPath: /tmp}
       volumes:
       - name: config
         configMap: {name: {{ .Values.name }}-brain-config}
-      - name: config-rw
-        emptyDir: {}
       - name: tmp
         emptyDir: {}
   volumeClaimTemplates:
