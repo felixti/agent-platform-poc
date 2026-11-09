@@ -14,6 +14,16 @@ Diagram: [`docs/topology.html`](topology.html). Rebuild from scratch + every dec
 
 ### Start and open the agent UI
 
+### Open the agent UI (HTTPS, no tunnel)
+
+1. Open `https://alice-assistant.20-121-208-105.sslip.io/` and sign in with your Microsoft account (Entra ID).
+2. Paste the OpenClaw token when asked (second factor):
+   `kubectl -n u-alice get secret assistant-gateway-token -o jsonpath='{.data.password}' | base64 -d`
+3. Ops UI: `https://headlamp.20-121-208-105.sslip.io/`, then a token: `kubectl -n headlamp create token headlamp --duration=1h`.
+
+The port-forward steps below still work as a fallback.
+
+
 1. Start the cluster (auto-start is off; the 21:00 BRT weekday stop stays on):
    `az aks start -g aks-lab -n aks-lab` — ≈5 min
 2. Get credentials: `az aks get-credentials -g aks-lab -n aks-lab --overwrite-existing`
@@ -94,6 +104,7 @@ Also: Storage account `stagentpocjt75` (artifacts, keyless, unused yet), budget 
 | LLM gateway | Envoy `llm-gateway` (ClusterIP): injects the OpenRouter key from Key Vault, 120 req/min |
 | Policy | ValidatingAdmissionPolicies (Kata annotations, hostPath, non-Kata sandboxes), StorageClass `agent-disk` (Retain), golden brain-disk snapshot |
 | Per employee | `u-<id>`: default-deny, DNS only, quota, PSS restricted |
+| Public ingress | Envoy `public` on static IP 20.121.208.105, Let's Encrypt `*.20-121-208-105.sslip.io` hosts, Entra ID OIDC on every route, Headlamp + agent UIs |
 
 ### Per agent (`charts/agent`)
 
@@ -165,7 +176,7 @@ More, smaller: ESO SSH keys need `refreshInterval: "0"`; quota requires resource
 |---|---|
 | OpenRouter | Internal OpenAI-compatible LLM gateway: change Backend FQDN + Key Vault secret |
 | GHCR public image | ACR with managed-identity pull |
-| port-forward + token | Envoy Gateway HTTPS + corporate Entra ID |
+| sslip.io + Let's Encrypt HTTP-01, one SAN per host | Company domain, wildcard cert via DNS-01; corporate Entra ID tenant |
 | OpenClaw brain + golden disk | Custom stateless brain (no brain disk needed) |
 | Personal subscription, start/stop schedule | Production pools, autoscaling, no schedule |
 

@@ -15,6 +15,16 @@ Diagrama: [`docs/topology.html`](topology.html). Como recriar do zero e todas as
 
 ### Ligar e abrir a UI do agente
 
+### Abrir a UI do agente (HTTPS, sem túnel)
+
+1. Abra `https://alice-assistant.20-121-208-105.sslip.io/` e entre com a sua conta Microsoft (Entra ID).
+2. Quando a UI pedir, cole o token do OpenClaw, que funciona como segundo fator:
+   `kubectl -n u-alice get secret assistant-gateway-token -o jsonpath='{.data.password}' | base64 -d`
+3. Para a UI de operação, abra `https://headlamp.20-121-208-105.sslip.io/` e gere um token: `kubectl -n headlamp create token headlamp --duration=1h`.
+
+Os passos de port-forward abaixo continuam funcionando como alternativa.
+
+
 1. Ligue o cluster. O start automático está desligado; o stop das 21:00 BRT nos dias úteis continua ligado:
    `az aks start -g aks-lab -n aks-lab` — ≈5 min
 2. Pegue as credenciais: `az aks get-credentials -g aks-lab -n aks-lab --overwrite-existing`
@@ -99,6 +109,7 @@ Também existem:
 | LLM gateway | Envoy `llm-gateway` (ClusterIP): injects the OpenRouter key from Key Vault, 120 req/min |
 | Policy | ValidatingAdmissionPolicies (Kata annotations, hostPath, non-Kata sandboxes), StorageClass `agent-disk` (Retain), golden brain-disk snapshot |
 | Por funcionário | `u-<id>`: default-deny, DNS only, quota, PSS restricted |
+| Public ingress | Envoy `public` on static IP 20.121.208.105, Let's Encrypt `*.20-121-208-105.sslip.io` hosts, Entra ID OIDC on every route, Headlamp + agent UIs |
 
 ### Por agente (`charts/agent`)
 
@@ -180,7 +191,7 @@ Outros menores:
 |---|---|
 | OpenRouter | Internal OpenAI-compatible LLM gateway: trocar o Backend FQDN + o secret no Key Vault |
 | GHCR public image | ACR com pull via managed identity |
-| port-forward + token | Envoy Gateway HTTPS + Entra ID corporativo |
+| sslip.io + Let's Encrypt HTTP-01, one SAN per host | Company domain, wildcard cert via DNS-01; corporate Entra ID tenant |
 | OpenClaw brain + golden disk | Brain custom stateless (sem disco de brain) |
 | Assinatura pessoal, agenda start/stop | Pools de produção, autoscaling, sem agenda |
 
