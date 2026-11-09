@@ -1,7 +1,8 @@
 {{- include "agent.validate" . }}
 # On top of the employee namespace's default-deny + DNS:
 #  brain    -> its own computer (ssh) and the platform LLM gateway, nothing else
-#  computer <- its own brain only; no egress besides DNS (no internet in the PoC)
+#  computer <- its own brain only (ssh, and CDP when the browser is enabled)
+#  computer -> its own egress proxy only (when egress.allow is set); else DNS only
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -21,6 +22,9 @@ spec:
           agentplatform.io/role: computer
     ports:
     - {port: 2222, protocol: TCP}
+    {{- if .Values.computer.browser.enabled }}
+    - {port: {{ .Values.computer.browser.port }}, protocol: TCP}
+    {{- end }}
   - to:
     - namespaceSelector:
         matchLabels: {kubernetes.io/metadata.name: {{ .Values.llm.gatewayNamespace }}}
@@ -48,3 +52,28 @@ spec:
           agentplatform.io/role: brain
     ports:
     - {port: 2222, protocol: TCP}
+    {{- if .Values.computer.browser.enabled }}
+    - {port: {{ .Values.computer.browser.port }}, protocol: TCP}
+    {{- end }}
+{{- if .Values.egress.allow }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.name }}-computer-egress
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "agent.labels" . | nindent 6 }}
+      agentplatform.io/role: computer
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          {{- include "agent.labels" . | nindent 10 }}
+          agentplatform.io/role: egress
+    ports:
+    - {port: {{ .Values.egress.port }}, protocol: TCP}
+{{- end }}

@@ -11,12 +11,21 @@
       "updateHostKeys" false
       "identityData" (merge (dict "id" "SSH_IDENTITY") $envRef)
       "knownHostsData" (merge (dict "id" "SSH_KNOWN_HOSTS") $envRef) }}
+{{- $sandbox := dict "mode" "all" "backend" "ssh" "scope" "agent" "workspaceAccess" "rw" "ssh" $ssh }}
 {{- $config := dict
       "gateway" (dict "mode" "local" "controlUi" (dict "allowedOrigins" (list (printf "http://localhost:%d" $port) (printf "http://127.0.0.1:%d" $port))))
       "models" (dict "providers" (dict .Values.llm.providerName $provider))
       "agents" (dict "defaults" (dict
           "model" (dict "primary" (printf "%s/%s" .Values.llm.providerName .Values.model))
-          "sandbox" (dict "mode" "all" "backend" "ssh" "scope" "agent" "workspaceAccess" "rw" "ssh" $ssh))) }}
+          "sandbox" $sandbox)) }}
+{{- if .Values.computer.browser.enabled }}
+{{- /* The browser runs in the computer (Kata VM); the brain attaches over CDP.
+       OpenClaw's own sandbox browser is Docker-only, so allow "host" control:
+       the remote attach-only profile is the only browser the brain has. */}}
+{{- $_ := set $sandbox "browser" (dict "allowHostControl" true) }}
+{{- $profile := dict "cdpUrl" (printf "http://%s:%d" (include "agent.computerHost" .) (int .Values.computer.browser.port)) "attachOnly" true }}
+{{- $_ := set $config "browser" (dict "enabled" true "defaultProfile" "computer" "profiles" (dict "computer" $profile)) }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

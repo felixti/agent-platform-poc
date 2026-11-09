@@ -1,0 +1,152 @@
+{{- include "agent.validate" . }}
+{{- if .Values.egress.allow }}
+# Per-agent egress proxy: the computer's ONLY way to the internet.
+# Envoy dynamic forward proxy (HTTP CONNECT + plain HTTP) with a host allowlist
+# from agents/<employee>/<name>.yaml. Anything else gets 403 and is logged.
+# Separate pod (runc, platform pool) so the agent cannot rewrite or bypass it.
+{{- $domains := list }}
+{{- range .Values.egress.allow }}
+{{- $domains = append $domains . }}
+{{- $domains = append $domains (printf "%s:443" .) }}
+{{- end }}
+{{- $envoy := dict
+  "static_resources" (dict
+    "listeners" (list (dict
+      "name" "egress"
+      "address" (dict "socket_address" (dict "address" "0.0.0.0" "port_value" (int .Values.egress.port)))
+      "filter_chains" (list (dict "filters" (list (dict
+        "name" "envoy.filters.network.http_connection_manager"
+        "typed_config" (dict
+          "@type" "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+          "stat_prefix" "egress"
+          "upgrade_configs" (list (dict "upgrade_type" "CONNECT"))
+          "access_log" (list (dict
+            "name" "envoy.access_loggers.stdout"
+            "typed_config" (dict
+              "@type" "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog"
+              "log_format" (dict "text_format_source" (dict "inline_string" "[%START_TIME%] %REQ(:METHOD)% %REQ(:AUTHORITY)% -> %RESPONSE_CODE% %RESPONSE_FLAGS% up=%BYTES_SENT% down=%BYTES_RECEIVED% %DURATION%ms\n")))))
+          "http_filters" (list
+            (dict "name" "envoy.filters.http.dynamic_forward_proxy"
+                  "typed_config" (dict
+                    "@type" "type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig"
+                    "dns_cache_config" (dict "name" "dfp" "dns_lookup_family" "V4_ONLY")))
+            (dict "name" "envoy.filters.http.router"
+                  "typed_config" (dict "@type" "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router")))
+          "route_config" (dict "virtual_hosts" (list
+            (dict "name" "allowed" "domains" $domains "routes" (list
+              (dict "match" (dict "connect_matcher" (dict))
+                    "route" (dict "cluster" "dfp" "timeout" "0s"
+                                  "upgrade_configs" (list (dict "upgrade_type" "CONNECT" "connect_config" (dict)))))
+              (dict "match" (dict "prefix" "/") "route" (dict "cluster" "dfp"))))
+            (dict "name" "denied" "domains" (list "*") "routes" (list
+              (dict "match" (dict "connect_matcher" (dict)) "direct_response" (dict "status" 403))
+              (dict "match" (dict "prefix" "/")
+                    "direct_response" (dict "status" 403 "body" (dict "inline_string" "egress denied by agent policy\n"))))))))))))))
+    "clusters" (list (dict
+      "name" "dfp"
+      "connect_timeout" "5s"
+      "lb_policy" "CLUSTER_PROVIDED"
+      "cluster_type" (dict
+        "name" "envoy.clusters.dynamic_forward_proxy"
+        "typed_config" (dict
+          "@type" "type.googleapis.com/envoy.extensions.clusters.dynamic_forward_proxy.v3.ClusterConfig"
+          "dns_cache_config" (dict "name" "dfp" "dns_lookup_family" "V4_ONLY")))))) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-egress
+  labels: {{- include "agent.labels" . | nindent 4 }}
+data:
+  envoy.yaml: {{ toYaml $envoy | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}-egress
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "agent.labels" . | nindent 6 }}
+      agentplatform.io/role: egress
+  template:
+    metadata:
+      labels:
+        {{- include "agent.labels" . | nindent 8 }}
+        agentplatform.io/role: egress
+      annotations:
+        checksum/config: {{ toJson $envoy | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        agentplatform.io/pool: platform
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: envoy
+        image: {{ .Values.egress.image }}
+        args: ["-c", "/etc/envoy/envoy.yaml", "--log-level", "warn"]
+        ports:
+        - {name: proxy, containerPort: {{ .Values.egress.port }}}
+        resources: {{- toYaml .Values.egress.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: {drop: [ALL]}
+        readinessProbe:
+          tcpSocket: {port: {{ .Values.egress.port }}}
+          periodSeconds: 10
+        volumeMounts:
+        - {name: config, mountPath: /etc/envoy, readOnly: true}
+      volumes:
+      - name: config
+        configMap: {name: {{ .Values.name }}-egress}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}-egress
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "agent.labels" . | nindent 4 }}
+    agentplatform.io/role: egress
+  ports:
+  - {name: proxy, port: {{ .Values.egress.port }}, targetPort: {{ .Values.egress.port }}}
+---
+# Proxy: in from its own computer only; out to public internet on 80/443 only.
+# Private, link-local (IMDS 169.254.169.254) and Azure platform (168.63.129.16)
+# ranges are excluded, so an allowlisted name resolving to an internal IP fails.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.name }}-egress-proxy
+  labels: {{- include "agent.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "agent.labels" . | nindent 6 }}
+      agentplatform.io/role: egress
+  policyTypes: [Ingress, Egress]
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          {{- include "agent.labels" . | nindent 10 }}
+          agentplatform.io/role: computer
+    ports:
+    - {port: {{ .Values.egress.port }}, protocol: TCP}
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 168.63.129.16/32]
+    ports:
+    - {port: 80, protocol: TCP}
+    - {port: 443, protocol: TCP}
+{{- end }}

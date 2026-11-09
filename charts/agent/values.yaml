@@ -28,13 +28,28 @@ brain:
   stateSnapshotHandle: /subscriptions/9cee39bb-0212-4483-855e-7cdb5f6d3155/resourceGroups/MC_aks-lab_aks-lab_eastus/providers/Microsoft.Compute/snapshots/snapshot-0ec8899f-01b4-4d18-82af-6a3d57e73ee1
 
 computer:
-  image: ghcr.io/felixti/agent-sandbox-ssh:latest@sha256:73268388ca30d192e7bc339aaf81d5d025c6291c583682b9c4197016b1e61b86
+  image: ghcr.io/felixti/agent-sandbox-ssh:43953751078456e9f2e20cad3e80e835b9620963@sha256:b0f466acfe5e140e6e967f4b7f7f289b7a70f7a47388a79fb2b4534a93c8fae3
   runtimeClassName: kata-vm-isolation
-  # The Kata pod VM is sized from the limits.
+  # The Kata pod VM is sized from the limits (headless Chromium needs ~1-2 GiB).
   resources:
-    requests: {cpu: 250m, memory: 512Mi}
-    limits: {cpu: "1", memory: 1Gi}
+    requests: {cpu: 250m, memory: 1Gi}
+    limits: {cpu: 1500m, memory: 3Gi}
   storage: 4Gi
   operatingMode: Running     # Running | Suspended (hibernate, keeps the PVC)
+  # Headless Chromium in the computer, driven by the brain's browser tool over
+  # CDP (:9222, brain-only). Reaches the internet through the egress proxy.
+  browser:
+    enabled: true
+    port: 9222
+
+# Internet access for the computer. Empty allow = no internet (default).
+# Entries are hostnames, "*.example.com" wildcards allowed; ports 80/443 only.
+egress:
+  allow: []
+  port: 3128
+  image: docker.io/envoyproxy/envoy:distroless-v1.40.2@sha256:09ca6f2140a61ad8df11779a4a30d52b48433d444466328494f9188c9c35eded
+  resources:
+    requests: {cpu: 20m, memory: 32Mi}
+    limits: {memory: 128Mi}
 
 storageClassName: agent-disk

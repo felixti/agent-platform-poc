@@ -1,6 +1,6 @@
 {{- include "agent.validate" . }}
 # The agent's computer: a Kata microVM (own guest kernel) with a persistent
-# workspace. Holds no credentials; only its brain may SSH in.
+# workspace. Holds no credentials; only its brain may reach it (SSH, CDP).
 apiVersion: agents.x-k8s.io/v1beta1
 kind: Sandbox
 metadata:
@@ -33,6 +33,15 @@ spec:
         image: {{ .Values.computer.image }}
         ports:
         - {name: ssh, containerPort: 2222}
+        {{- if .Values.computer.browser.enabled }}
+        - {name: cdp, containerPort: {{ .Values.computer.browser.port }}}
+        {{- end }}
+        env:
+        - {name: BROWSER_ENABLED, value: {{ .Values.computer.browser.enabled | quote }}}
+        - {name: CDP_PORT, value: {{ .Values.computer.browser.port | quote }}}
+        {{- if .Values.egress.allow }}
+        - {name: EGRESS_PROXY, value: "http://{{ .Values.name }}-egress:{{ .Values.egress.port }}"}
+        {{- end }}
         resources: {{- toYaml .Values.computer.resources | nindent 10 }}
         securityContext:
           allowPrivilegeEscalation: false
@@ -79,3 +88,6 @@ spec:
     agentplatform.io/role: computer
   ports:
   - {name: ssh, port: 2222, targetPort: 2222}
+  {{- if .Values.computer.browser.enabled }}
+  - {name: cdp, port: {{ .Values.computer.browser.port }}, targetPort: {{ .Values.computer.browser.port }}}
+  {{- end }}

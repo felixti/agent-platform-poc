@@ -40,3 +40,6 @@ spec:
             name: {{ .name | quote }}
             brainKind: {{ .brainKind | quote }}
             model: {{ .model | quote }}
+            {{- if hasKey . "egress" }}
+            egress: {{ toJson .egress }}
+            {{- end }}

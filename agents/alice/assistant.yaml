@@ -3,3 +3,15 @@ employee: alice
 name: assistant
 brainKind: openclaw
 model: meta/muse-spark-1.3-contributor
+# Internet for the agent's computer (via its egress proxy). Omit = no internet.
+# Hostnames or "*.domain" wildcards; HTTPS (443) and HTTP (80) only.
+egress:
+  allow:
+  - github.com
+  - "*.github.com"
+  - "*.githubusercontent.com"
+  - pypi.org
+  - files.pythonhosted.org
+  - registry.npmjs.org
+  - example.com
+  - en.wikipedia.org
