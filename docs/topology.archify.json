@@ -1,524 +1,582 @@
 {
- "schema_version": 1,
- "diagram_type": "architecture",
- "meta": {
-  "title": "Agent Platform PoC \u2014 AKS Topology",
-  "output": ".archify/architecture-agent-platform-20261109-003010/agent-platform-topology.html",
-  "locale": "en",
-  "quality_profile": "showcase",
-  "repository": {
-   "url": "https://github.com/felixti/agent-platform-poc.git",
-   "provider": "github",
-   "link_mode": "web",
-   "revision": "9655fbd0703f3641d0060cf6ea29490fcfefec0d"
-  }
- },
- "components": [
-  {
-   "id": "user",
-   "type": "external",
-   "label": "Employee",
-   "sublabel": "browser \u00b7 UI token",
-   "pos": [
-    40,
-    350
-   ],
-   "size": [
-    170,
-    64
-   ]
-  },
-  {
-   "id": "golden",
-   "type": "database",
-   "label": "Golden snapshot",
-   "sublabel": "uid 1000 \u00b7 mode 0700",
-   "pos": [
-    330,
-    70
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "tag": "platform-storage",
-   "sources": [
-    {
-     "path": "gitops/platform/brain-disk-template/template.yaml",
-     "label": "prepare Job + snapshot"
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Agent Platform PoC — AKS Topology",
+    "output": ".archify/architecture-agent-platform-20261109-140300/agent-platform-topology.html",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/felixti/agent-platform-poc.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "769876a8fcacf57e6901f1bb9b49c2d908da1476"
     }
-   ]
   },
-  {
-   "id": "brain_disk",
-   "type": "database",
-   "label": "Brain state disk",
-   "sublabel": "Azure Disk \u00b7 Retain",
-   "pos": [
-    330,
-    210
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "sources": [
+  "components": [
     {
-     "path": "charts/agent/templates/brain-openclaw.yaml",
-     "label": "volumeClaimTemplates"
-    }
-   ]
-  },
-  {
-   "id": "brain",
-   "type": "backend",
-   "label": "OpenClaw brain",
-   "sublabel": "runc \u00b7 non-root",
-   "pos": [
-    330,
-    350
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "tag": "u-alice",
-   "sources": [
-    {
-     "path": "charts/agent/templates/brain-openclaw.yaml",
-     "label": "StatefulSet"
+      "id": "user",
+      "type": "external",
+      "label": "Employee",
+      "sublabel": "browser · UI token",
+      "pos": [
+        40,
+        500
+      ],
+      "size": [
+        170,
+        64
+      ]
     },
     {
-     "path": "agents/alice/assistant.yaml",
-     "label": "agent spec"
-    }
-   ]
-  },
-  {
-   "id": "workspace",
-   "type": "database",
-   "label": "Workspace disk",
-   "sublabel": "Azure Disk 4 GiB",
-   "pos": [
-    620,
-    210
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "sources": [
-    {
-     "path": "charts/agent/templates/computer.yaml",
-     "label": "volumeClaimTemplates"
-    }
-   ]
-  },
-  {
-   "id": "computer",
-   "type": "security",
-   "label": "Agent computer",
-   "sublabel": "Kata microVM \u00b7 sshd",
-   "pos": [
-    620,
-    350
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "tag": "u-alice",
-   "sources": [
-    {
-     "path": "charts/agent/templates/computer.yaml",
-     "label": "Sandbox"
+      "id": "golden",
+      "type": "database",
+      "label": "Golden snapshot",
+      "sublabel": "uid 1000 · mode 0700",
+      "pos": [
+        290,
+        220
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "platform-storage",
+      "sources": [
+        {
+          "path": "gitops/platform/brain-disk-template/template.yaml",
+          "label": "prepare Job + snapshot"
+        }
+      ]
     },
     {
-     "path": "images/sandbox-ssh/Dockerfile",
-     "label": "image"
-    }
-   ]
-  },
-  {
-   "id": "controller",
-   "type": "backend",
-   "label": "agent-sandbox",
-   "sublabel": "controller v1.0.10",
-   "pos": [
-    930,
-    350
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "tag": "platform",
-   "sources": [
-    {
-     "path": "gitops/platform/agent-sandbox/kustomization.yaml",
-     "label": "vendored manifest"
-    }
-   ]
-  },
-  {
-   "id": "argocd",
-   "type": "backend",
-   "label": "Argo CD",
-   "sublabel": "app-of-apps \u00b7 AppSets",
-   "pos": [
-    1240,
-    350
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "tag": "platform",
-   "sources": [
-    {
-     "path": "infra/gitops-bootstrap/main.tf",
-     "label": "helm bootstrap"
+      "id": "brain_disk",
+      "type": "database",
+      "label": "Brain state disk",
+      "sublabel": "Azure Disk · Retain",
+      "pos": [
+        290,
+        360
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "charts/agent/templates/brain-openclaw.yaml",
+          "label": "volumeClaimTemplates"
+        }
+      ]
     },
     {
-     "path": "gitops/apps/agents.yaml",
-     "label": "agents ApplicationSet"
-    }
-   ]
-  },
-  {
-   "id": "github",
-   "type": "external",
-   "label": "GitHub repo",
-   "sublabel": "agents/*.yaml \u00b7 PRs",
-   "pos": [
-    1530,
-    350
-   ],
-   "size": [
-    170,
-    64
-   ]
-  },
-  {
-   "id": "postgres",
-   "type": "database",
-   "label": "PostgreSQL",
-   "sublabel": "CloudNativePG \u00b7 8 GiB",
-   "pos": [
-    930,
-    70
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "tag": "data",
-   "sources": [
-    {
-     "path": "gitops/platform/postgres/cluster.yaml",
-     "label": "Cluster agents-pg"
-    }
-   ]
-  },
-  {
-   "id": "valkey",
-   "type": "database",
-   "label": "Valkey",
-   "sublabel": "ACL auth \u00b7 4 GiB",
-   "pos": [
-    1240,
-    70
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "tag": "data",
-   "sources": [
-    {
-     "path": "gitops/apps/valkey.yaml",
-     "label": "Helm values"
-    }
-   ]
-  },
-  {
-   "id": "llmgw",
-   "type": "security",
-   "label": "LLM gateway",
-   "sublabel": "Envoy \u00b7 key injection",
-   "pos": [
-    330,
-    500
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "tag": "llm-gateway",
-   "sources": [
-    {
-     "path": "gitops/platform/llm-gateway/gateway.yaml",
-     "label": "route + credentialInjection"
-    }
-   ]
-  },
-  {
-   "id": "eso",
-   "type": "security",
-   "label": "External Secrets",
-   "sublabel": "Workload Identity",
-   "pos": [
-    620,
-    500
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "tag": "external-secrets",
-   "sources": [
-    {
-     "path": "gitops/platform/external-secrets/secret-store.yaml",
-     "label": "ClusterSecretStore"
+      "id": "brain",
+      "type": "backend",
+      "label": "OpenClaw brain",
+      "sublabel": "runc · non-root",
+      "pos": [
+        290,
+        500
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "u-alice",
+      "sources": [
+        {
+          "path": "charts/agent/templates/brain-openclaw.yaml",
+          "label": "StatefulSet"
+        },
+        {
+          "path": "agents/alice/assistant.yaml",
+          "label": "agent spec"
+        }
+      ]
     },
     {
-     "path": "infra/platform/identities.tf",
-     "label": "federated identity"
-    }
-   ]
-  },
-  {
-   "id": "keyvault",
-   "type": "cloud",
-   "label": "Azure Key Vault",
-   "sublabel": "platform secrets",
-   "pos": [
-    930,
-    500
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "tag": "azure",
-   "sources": [
+      "id": "workspace",
+      "type": "database",
+      "label": "Workspace disk",
+      "sublabel": "Azure Disk 4 GiB",
+      "pos": [
+        540,
+        360
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "charts/agent/templates/computer.yaml",
+          "label": "volumeClaimTemplates"
+        }
+      ]
+    },
     {
-     "path": "infra/platform/keyvault.tf",
-     "label": "kv-agentpoc"
-    }
-   ]
-  },
-  {
-   "id": "openrouter",
-   "type": "external",
-   "label": "OpenRouter",
-   "sublabel": "OpenAI-compatible API",
-   "pos": [
-    330,
-    650
-   ],
-   "size": [
-    170,
-    64
-   ]
-  },
-  {
-   "id": "tofu",
-   "type": "external",
-   "label": "OpenTofu",
-   "sublabel": "encrypted remote state",
-   "pos": [
-    930,
-    650
-   ],
-   "size": [
-    170,
-    64
-   ],
-   "sources": [
+      "id": "computer",
+      "type": "security",
+      "label": "Agent computer",
+      "sublabel": "Kata microVM · sshd · Chromium",
+      "pos": [
+        540,
+        500
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "u-alice",
+      "sources": [
+        {
+          "path": "charts/agent/templates/computer.yaml",
+          "label": "Sandbox"
+        },
+        {
+          "path": "images/sandbox-ssh/Dockerfile",
+          "label": "image"
+        }
+      ]
+    },
     {
-     "path": "infra/platform/versions.tf",
-     "label": "backend + encryption"
+      "id": "controller",
+      "type": "backend",
+      "label": "agent-sandbox",
+      "sublabel": "controller v1.0.10",
+      "pos": [
+        1040,
+        500
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "platform",
+      "sources": [
+        {
+          "path": "gitops/platform/agent-sandbox/kustomization.yaml",
+          "label": "vendored manifest"
+        }
+      ]
+    },
+    {
+      "id": "argocd",
+      "type": "backend",
+      "label": "Argo CD",
+      "sublabel": "app-of-apps · AppSets · Headlamp",
+      "pos": [
+        1290,
+        500
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "platform",
+      "sources": [
+        {
+          "path": "infra/gitops-bootstrap/main.tf",
+          "label": "helm bootstrap"
+        },
+        {
+          "path": "gitops/apps/agents.yaml",
+          "label": "agents ApplicationSet"
+        },
+        {
+          "path": "gitops/apps/headlamp.yaml",
+          "label": "Headlamp ops UI"
+        }
+      ]
+    },
+    {
+      "id": "github",
+      "type": "external",
+      "label": "GitHub repo",
+      "sublabel": "agents/*.yaml · PRs",
+      "pos": [
+        1540,
+        500
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "CloudNativePG · 8 GiB",
+      "pos": [
+        1040,
+        220
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "data",
+      "sources": [
+        {
+          "path": "gitops/platform/postgres/cluster.yaml",
+          "label": "Cluster agents-pg"
+        }
+      ]
+    },
+    {
+      "id": "valkey",
+      "type": "database",
+      "label": "Valkey",
+      "sublabel": "ACL auth · 4 GiB",
+      "pos": [
+        1290,
+        220
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "data",
+      "sources": [
+        {
+          "path": "gitops/apps/valkey.yaml",
+          "label": "Helm values"
+        }
+      ]
+    },
+    {
+      "id": "llmgw",
+      "type": "security",
+      "label": "LLM gateway",
+      "sublabel": "Envoy · key injection",
+      "pos": [
+        290,
+        650
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "llm-gateway",
+      "sources": [
+        {
+          "path": "gitops/platform/llm-gateway/gateway.yaml",
+          "label": "route + credentialInjection"
+        }
+      ]
+    },
+    {
+      "id": "eso",
+      "type": "security",
+      "label": "External Secrets",
+      "sublabel": "Workload Identity",
+      "pos": [
+        540,
+        650
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "external-secrets",
+      "sources": [
+        {
+          "path": "gitops/platform/external-secrets/secret-store.yaml",
+          "label": "ClusterSecretStore"
+        },
+        {
+          "path": "infra/platform/identities.tf",
+          "label": "federated identity"
+        }
+      ]
+    },
+    {
+      "id": "keyvault",
+      "type": "cloud",
+      "label": "Azure Key Vault",
+      "sublabel": "platform secrets",
+      "pos": [
+        1040,
+        650
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "azure",
+      "sources": [
+        {
+          "path": "infra/platform/keyvault.tf",
+          "label": "kv-agentpoc"
+        }
+      ]
+    },
+    {
+      "id": "openrouter",
+      "type": "external",
+      "label": "OpenRouter",
+      "sublabel": "OpenAI-compatible API",
+      "pos": [
+        290,
+        800
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "tofu",
+      "type": "external",
+      "label": "OpenTofu",
+      "sublabel": "encrypted remote state",
+      "pos": [
+        1040,
+        800
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "infra/platform/versions.tf",
+          "label": "backend + encryption"
+        }
+      ]
+    },
+    {
+      "id": "egress",
+      "type": "security",
+      "label": "Egress proxy",
+      "sublabel": "Envoy · host allowlist",
+      "pos": [
+        790,
+        360
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "u-alice",
+      "sources": [
+        {
+          "path": "charts/agent/templates/egress-proxy.yaml",
+          "label": "Deployment + NetworkPolicy"
+        },
+        {
+          "path": "agents/alice/assistant.yaml",
+          "label": "egress.allow"
+        }
+      ]
+    },
+    {
+      "id": "internet",
+      "type": "external",
+      "label": "Public internet",
+      "sublabel": "allowlisted hosts only",
+      "pos": [
+        790,
+        60
+      ],
+      "size": [
+        170,
+        64
+      ]
     }
-   ]
-  }
- ],
- "boundaries": [
-  {
-   "kind": "region",
-   "label": "Azure subscription \u00b7 eastus \u00b7 AKS aks-lab",
-   "wraps": [
-    "golden",
-    "brain_disk",
-    "brain",
-    "workspace",
-    "computer",
-    "controller",
-    "argocd",
-    "postgres",
-    "valkey",
-    "llmgw",
-    "eso",
-    "keyvault"
-   ],
-   "pad": 26
-  },
-  {
-   "kind": "security-group",
-   "label": "namespace u-alice \u00b7 default-deny \u00b7 PSS restricted",
-   "wraps": [
-    "brain_disk",
-    "brain",
-    "workspace",
-    "computer"
-   ],
-   "pad": 16
-  },
-  {
-   "kind": "security-group",
-   "label": "Kata pool \u00b7 Spot \u2192 on-demand",
-   "wraps": [
-    "computer"
-   ],
-   "pad": 8
-  },
-  {
-   "kind": "security-group",
-   "label": "namespace data",
-   "wraps": [
-    "postgres",
-    "valkey"
-   ],
-   "pad": 12
-  },
-  {
-   "kind": "security-group",
-   "label": "llm-gateway \u00b7 external-secrets",
-   "wraps": [
-    "llmgw",
-    "eso"
-   ],
-   "pad": 12
-  }
- ],
- "connections": [
-  {
-   "from": "user",
-   "to": "brain",
-   "label": "port-forward",
-   "variant": "emphasis"
-  },
-  {
-   "from": "brain",
-   "to": "computer",
-   "label": "SSH :2222",
-   "variant": "security"
-  },
-  {
-   "from": "brain",
-   "to": "brain_disk",
-   "label": "SQLite state"
-  },
-  {
-   "from": "golden",
-   "to": "brain_disk",
-   "label": "clone",
-   "variant": "dashed"
-  },
-  {
-   "from": "computer",
-   "to": "workspace",
-   "label": "virtio-fs"
-  },
-  {
-   "from": "controller",
-   "to": "computer",
-   "label": "creates pod"
-  },
-  {
-   "from": "argocd",
-   "to": "controller",
-   "label": "applies CRs"
-  },
-  {
-   "from": "github",
-   "to": "argocd",
-   "label": "git pull"
-  },
-  {
-   "from": "argocd",
-   "to": "valkey",
-   "label": "deploys",
-   "variant": "dashed"
-  },
-  {
-   "from": "brain",
-   "to": "llmgw",
-   "label": "HTTP, no key",
-   "variant": "emphasis"
-  },
-  {
-   "from": "llmgw",
-   "to": "openrouter",
-   "label": "HTTPS + key",
-   "variant": "security"
-  },
-  {
-   "from": "eso",
-   "to": "llmgw",
-   "label": "Secret"
-  },
-  {
-   "from": "keyvault",
-   "to": "eso",
-   "label": "read (WI)",
-   "variant": "security"
-  },
-  {
-   "from": "tofu",
-   "to": "keyvault",
-   "label": "provisions",
-   "variant": "dashed"
-  }
- ],
- "cards": [
-  {
-   "dot": "rose",
-   "title": "Isolation",
-   "items": [
-    "Each computer is a Kata microVM with its own kernel",
-    "Default-deny NetworkPolicy: computer has no internet",
-    "Admission blocks Kata annotations, hostPath, non-Kata sandboxes",
-    "LLM key lives only in Envoy (ESO from Key Vault)"
-   ]
-  },
-  {
-   "dot": "emerald",
-   "title": "Durability",
-   "items": [
-    "Brain and workspace on Azure Disk (Retain)",
-    "Brain disks cloned from a golden snapshot (non-root)",
-    "Postgres + Valkey ready for the stateless custom brain"
-   ]
-  },
-  {
-   "dot": "cyan",
-   "title": "Operations",
-   "items": [
-    "New agent = YAML file in a PR (ApplicationSet)",
-    "OpenTofu state encrypted with a Key Vault key",
-    "Weekday 08:00\u201321:00 BRT start/stop; budget R$450"
-   ]
-  },
-  {
-   "dot": "amber",
-   "title": "Not yet",
-   "items": [
-    "Telegram + HTTPS/Entra ingress",
-    "Idle hibernation (Suspended)",
-    "Sandbox internet via Envoy allowlist",
-    "Per-employee Blob containers"
-   ]
-  }
- ]
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Azure subscription · eastus · AKS aks-lab",
+      "wraps": [
+        "golden",
+        "brain_disk",
+        "brain",
+        "workspace",
+        "computer",
+        "controller",
+        "argocd",
+        "postgres",
+        "valkey",
+        "llmgw",
+        "eso",
+        "keyvault",
+        "egress"
+      ],
+      "pad": 26
+    },
+    {
+      "kind": "security-group",
+      "label": "namespace u-alice · default-deny · PSS restricted",
+      "wraps": [
+        "brain_disk",
+        "brain",
+        "workspace",
+        "computer",
+        "egress"
+      ],
+      "pad": 16
+    },
+    {
+      "kind": "security-group",
+      "label": "Kata pool · Spot → on-demand",
+      "wraps": [
+        "computer"
+      ],
+      "pad": 8
+    },
+    {
+      "kind": "security-group",
+      "label": "namespace data",
+      "wraps": [
+        "postgres",
+        "valkey"
+      ],
+      "pad": 12
+    },
+    {
+      "kind": "security-group",
+      "label": "llm-gateway · external-secrets",
+      "wraps": [
+        "llmgw",
+        "eso"
+      ],
+      "pad": 12
+    }
+  ],
+  "connections": [
+    {
+      "from": "user",
+      "to": "brain",
+      "label": "port-forward",
+      "variant": "emphasis"
+    },
+    {
+      "from": "brain",
+      "to": "computer",
+      "label": "SSH + CDP",
+      "variant": "security"
+    },
+    {
+      "from": "brain",
+      "to": "brain_disk",
+      "label": "SQLite state"
+    },
+    {
+      "from": "golden",
+      "to": "brain_disk",
+      "label": "clone",
+      "variant": "dashed"
+    },
+    {
+      "from": "computer",
+      "to": "workspace",
+      "label": "virtio-fs"
+    },
+    {
+      "from": "controller",
+      "to": "computer",
+      "label": "creates pod"
+    },
+    {
+      "from": "argocd",
+      "to": "controller",
+      "label": "applies CRs"
+    },
+    {
+      "from": "github",
+      "to": "argocd",
+      "label": "git pull"
+    },
+    {
+      "from": "argocd",
+      "to": "valkey",
+      "label": "deploys",
+      "variant": "dashed"
+    },
+    {
+      "from": "brain",
+      "to": "llmgw",
+      "label": "HTTP, no key",
+      "variant": "emphasis"
+    },
+    {
+      "from": "llmgw",
+      "to": "openrouter",
+      "label": "HTTPS + key",
+      "variant": "security"
+    },
+    {
+      "from": "eso",
+      "to": "llmgw",
+      "label": "Secret"
+    },
+    {
+      "from": "keyvault",
+      "to": "eso",
+      "label": "read (WI)",
+      "variant": "security"
+    },
+    {
+      "from": "tofu",
+      "to": "keyvault",
+      "label": "provisions",
+      "variant": "dashed"
+    },
+    {
+      "from": "computer",
+      "to": "egress",
+      "label": "proxy :3128",
+      "variant": "security"
+    },
+    {
+      "from": "egress",
+      "to": "internet",
+      "label": "80/443 allowlist",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Isolation",
+      "items": [
+        "Each computer is a Kata microVM with its own kernel",
+        "Computer reaches the internet only via its egress allowlist",
+        "Admission blocks Kata annotations, hostPath, non-Kata sandboxes",
+        "LLM key lives only in Envoy (ESO from Key Vault)"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Durability",
+      "items": [
+        "Brain and workspace on Azure Disk (Retain)",
+        "Brain disks cloned from a golden snapshot (non-root)",
+        "Postgres + Valkey ready for the stateless custom brain"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Operations",
+      "items": [
+        "New agent = YAML file in a PR (ApplicationSet)",
+        "OpenTofu state encrypted with a Key Vault key",
+        "Ops UI: Headlamp + Argo CD (port-forward)",
+        "Weekday 21:00 BRT auto-stop; budget R$450"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Not yet",
+      "items": [
+        "Telegram + HTTPS/Entra ingress",
+        "Idle hibernation (Suspended)",
+        "Egress SNI check + audit log export",
+        "Per-employee Blob containers"
+      ]
+    }
+  ]
 }
