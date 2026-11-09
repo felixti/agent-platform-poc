@@ -35,7 +35,7 @@ The platform must ensure a compromised agent cannot:
 | Network dataplane | Azure CNI powered by Cilium (no ACNS) | Apache-2.0 | Enforces NetworkPolicy; free |
 | Gateway | Envoy Gateway (ingress + explicit egress forward proxy) | Apache-2.0 | Gateway API, OIDC/JWT, rate limiting, header injection |
 | PostgreSQL | CloudNativePG | Apache-2.0 | CNCF; operator-managed HA, backups to Blob |
-| Cache/queues | Valkey | BSD-3-Clause | Redis 8 is RSAL/SSPL/AGPL |
+| Cache/queues | Valkey (official `valkey-io/valkey-helm` chart) | BSD-3-Clause | Redis 8 is RSAL/SSPL/AGPL; Bitnami charts avoided |
 | Secrets | Azure Key Vault + External Secrets Operator | Apache-2.0 | No secrets in git; Workload Identity |
 | IaC | OpenTofu | MPL-2.0 | Terraform is BSL 1.1 |
 | GitOps | Argo CD | Apache-2.0 | CNCF Graduated, ApplicationSet, UI |
@@ -82,10 +82,26 @@ agent loop, durable state and credentials live outside it.
 
 - **Brain kinds** (`brainKind`): `openclaw` (PoC), `hermes` (optional), `pi-durable` (phase 2).
   Off-the-shelf brains run as a 1-replica StatefulSet with a PVC; the custom brain is
-  stateless with an append-only event log in Postgres (`wake(sessionId)` pattern).
+  stateless with an append-only event log in Postgres (`wake(sessionId)` pattern) and
+  needs no brain disk.
+- **Brain state disk ownership**: OpenClaw (and Hermes) keep SQLite state and refuse a
+  state dir that is not owned by their uid or whose ancestors are writable by others.
+  A fresh Azure Disk root is `root:root`, and `fsGroup` adds group write. Solution:
+  a golden snapshot (empty ext4, root `1000:1000`, `0700`) prepared once in the
+  `platform-storage` namespace; brain PVCs are cloned from it (per-namespace
+  pre-provisioned `VolumeSnapshotContent`) and brains run without `fsGroup`. Employee
+  namespaces stay PSS `restricted`; no root container runs there.
+- **OpenClaw config**: seeded once onto the brain disk (upstream k8s recipe); OpenClaw
+  treats external overwrites as clobbering. `/tmp` is a sticky (`1777`) subPath.
 - **Brain ↔ sandbox contract**: SSH (exec + SFTP), one key per agent stored in Key Vault,
   hardened `sshd` (key-only, no root), NetworkPolicy allows only that agent's brain on :22.
   Phase 2 target: agent-sandbox HTTP API via sandbox-router.
+- **Computer DNS**: agent-sandbox v1.0 exposes only pod IPs, so the chart adds a
+  ClusterIP Service `<agent>-computer` (port 2222) used as the SSH target.
+- **LLM access**: brains call an internal OpenAI-compatible endpoint
+  (`http://llm-gateway.envoy-gateway-system.svc/api/v1`). Envoy Gateway injects the
+  provider key (`HTTPRouteFilter.credentialInjection`, Secret synced by ESO from Key
+  Vault) and forwards over TLS to the provider. Brains hold a dummy key.
 - **Hibernation**: the brain sets its `Sandbox` to `Suspended` after 15 min idle and back
   to `Running` on the next message. The PVC is kept. On AKS this is a cold restart
   (memory snapshots are GKE-only). The Kata node pool autoscales to zero when all
