@@ -20,6 +20,8 @@ locals {
   agent_specs = [for f in fileset("${path.module}/../../agents", "*/*.yaml") : yamldecode(file("${path.module}/../../agents/${f}"))]
   ui_hosts = concat(
     ["headlamp.${local.ingress_domain}"],
+    # Chat harness PoC (github.com/felixti/chat-harness-poc), same Entra app.
+    ["chat.${local.ingress_domain}"],
     [for a in local.agent_specs : "${a.employee}-${a.name}.${local.ingress_domain}"],
   )
 }

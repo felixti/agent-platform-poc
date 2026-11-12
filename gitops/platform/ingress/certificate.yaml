@@ -27,3 +27,4 @@ spec:
   dnsNames:
   - headlamp.20-121-208-105.sslip.io
   - alice-assistant.20-121-208-105.sslip.io
+  - chat.20-121-208-105.sslip.io          # chat-harness-poc

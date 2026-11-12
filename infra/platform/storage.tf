@@ -44,3 +44,26 @@ resource "azurerm_storage_account" "artifacts" {
 
   tags = var.tags
 }
+
+# Account-wide lifecycle rules (one policy per account, so it lives with the account).
+# Chat harness PoC workspaces (uploads/outputs of conversations): deleted after 30 days.
+resource "azurerm_storage_management_policy" "artifacts" {
+  storage_account_id = azurerm_storage_account.artifacts.id
+
+  rule {
+    name    = "chat-workspaces-30d"
+    enabled = true
+    filters {
+      blob_types   = ["blockBlob"]
+      prefix_match = ["chat-workspaces/"]
+    }
+    actions {
+      base_blob {
+        delete_after_days_since_modification_greater_than = 30
+      }
+      version {
+        delete_after_days_since_creation = 7
+      }
+    }
+  }
+}
