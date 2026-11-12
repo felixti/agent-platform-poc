@@ -95,8 +95,11 @@ Os computadores (VMs Kata) dormem às **20:00 todos os dias** e acordam às **08
    egress:              # opcional: allowlist de internet (sem isso = sem internet)
      allow: [github.com, "*.github.com", pypi.org]
    ```
-3. Faça commit e push na `main`. O Argo CD cria o namespace `u-carol` e o agente (≈3 min).
-4. Para abrir a UI, repita os passos 3 e 4 da §1, trocando `u-alice` por `u-carol`.
+3. Adicione `carol-assistant.<domínio>` em `dnsNames` no `gitops/platform/ingress/certificate.yaml` (TLS por host; sslip.io não tem wildcard).
+4. Telegram (opcional, antes do push): crie um bot no @BotFather (`/newbot`) e guarde o token: `az keyvault secret set --vault-name kv-agentch-jt75 -n carol-assistant-telegram --file <arquivo-do-token>`; depois adicione `channels: {telegram: {enabled: true}}`. Se fizer o push antes, o brain fica esperando o Secret.
+5. Faça commit e push na `main`. O Argo CD cria o namespace `u-carol` e o agente (≈3 min). A pessoa abre o bot, manda uma mensagem e te envia o código de pareamento; aprove com o comando da §1 usando `u-carol`.
+
+Capacidade: cada computador precisa de uma D2ds_v5 própria (1,5 vCPU). Com `sandbox_pool_max_count = 1`, cabem no máximo 2 computadores acordados (1 Spot + 1 on-demand). A UI fica aberta para qualquer usuário do tenant Entra (ainda sem autorização por funcionário): beta testers de fora do time usam só o Telegram.
 
 ### Mudar a allowlist de internet de um agente
 

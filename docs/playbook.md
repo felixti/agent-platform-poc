@@ -94,8 +94,11 @@ Computers (Kata VMs) sleep at **20:00 every day** and wake at **08:00 Mon-Fri** 
    egress:              # optional: internet allowlist (omit = no internet)
      allow: [github.com, "*.github.com", pypi.org]
    ```
-3. Commit + push to `main`. Argo CD creates namespace `u-carol` and the agent (≈3 min).
-4. Open its UI: repeat §1 steps 3–4 with `u-carol`.
+3. Add `carol-assistant.<domain>` to `dnsNames` in `gitops/platform/ingress/certificate.yaml` (per-host TLS, no wildcard on sslip.io).
+4. Telegram (optional, before the push): create a bot in @BotFather (`/newbot`), then store the token: `az keyvault secret set --vault-name kv-agentch-jt75 -n carol-assistant-telegram --file <token-file>` and add `channels: {telegram: {enabled: true}}`. Pushing first makes the brain wait for a missing Secret.
+5. Commit + push to `main`. Argo CD creates namespace `u-carol` and the agent (≈3 min). The user opens the bot, sends a message, sends you the pairing code; approve with the §1 command using `u-carol`.
+
+Capacity: each computer needs its own D2ds_v5 (1.5 vCPU). With `sandbox_pool_max_count = 1` the platform runs at most 2 awake computers (1 Spot + 1 on-demand). The UI is open to every user of the Entra tenant (no per-employee authorization yet): beta testers outside the team use Telegram only.
 
 ### Change an agent's internet allowlist
 
