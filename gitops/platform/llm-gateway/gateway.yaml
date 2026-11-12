@@ -98,6 +98,9 @@ spec:
     - group: gateway.envoyproxy.io
       kind: Backend
       name: openrouter
+    # Streamed completions run for minutes; Envoy's default 15 s route timeout cut them (P31).
+    timeouts:
+      request: 600s
 ---
 # LLM rate limit: global ceiling for the PoC (per-agent limits: P3).
 apiVersion: gateway.envoyproxy.io/v1alpha1
